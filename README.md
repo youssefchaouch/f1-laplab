@@ -6,8 +6,8 @@ foundation focuses on domain contracts, FastF1 ingestion, and offline validation
 
 ## Current status
 
-**Sprint 00 (repository audit) and Sprint 01 (canonical lap contract) are complete.**
-Sprint 02, historical data acquisition, is planned and awaits approval. See the
+**Sprints 00–02 are implemented.** Sprint 02 adds explicit handling of empty
+sessions and a sample-acquisition script for historical data. See the
 [project status](motorsport_copilot_playbook/PROJECT_STATUS.md) and
 [project plan](motorsport_copilot_playbook/PROJECT_PLAN.md).
 
@@ -77,8 +77,30 @@ python -m mypy src/ tests/
 The offline test command excludes the test marked `network`, which may require
 FastF1 cache data or network access. Run the full suite with
 `python -m pytest` only when that integration test's requirements are available.
-The latest recorded offline result is **28 passed, 1 deselected**; Ruff and
+The latest verified offline result is **34 passed, 1 deselected**; Ruff and
 strict MyPy also passed.
+
+## Acquiring the historical sample
+
+After installing the project in editable mode, run this from the repository
+root to load the **2024 Monaco Grand Prix Race** through the existing FastF1
+loader:
+
+```powershell
+python scripts/acquire_sample.py
+```
+
+FastF1 uses its cache under the configured project data directory by default.
+To use a different cache location, set `F1STRATEGY_CACHE_DIR` before running:
+
+```powershell
+$env:F1STRATEGY_CACHE_DIR = "C:\f1strategy-cache"
+python scripts/acquire_sample.py
+```
+
+The script reports the session and lap/driver counts. FastF1 manages cache
+reuse; this project does not implement a second cache layer. Acquisition can
+require network access when the requested data is not already cached.
 
 ## Planned work and current limits
 

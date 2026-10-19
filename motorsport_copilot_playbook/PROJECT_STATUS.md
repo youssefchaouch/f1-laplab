@@ -1,7 +1,7 @@
 # Project Status
 
 ## Current stage
-**Sprint 01 completed.** Canonical lap records and nullable telemetry fields are implemented and verified. Awaiting approval before Sprint 02.
+**Sprint 02 implemented and verified.** Historical sample acquisition uses the existing FastF1 loader and configured cache. Empty sessions and sessions with no valid laps raise `InsufficientDataError`. See the README for the sample command and cache override.
 
 ## Verified existing components
 ✅ **Domain layer** — Complete and well-structured
@@ -39,9 +39,9 @@
 ## Verified baseline
 - **Python version:** ≥3.12 (configured in pyproject.toml: requires-python = ">=3.12")
 - **Dependency/install command:** `pip install -e ".[dev]"` (core + ruff, mypy, pytest, pandas-stubs)
-- **Test command:** `python -m pytest -m "not network"` → ✅ 28 passed, 1 deselected
+- **Test command:** `python -m pytest -m "not network"` → ✅ 34 passed, 1 deselected
 - **Lint command:** `python -m ruff check src/ tests/` → ✅ All checks passed (4 UP042/UP037 fixed)
-- **Type-check command:** `python -m mypy src/ tests/` → ✅ Success: no issues found in 21 source files
+- **Type-check command:** `python -m mypy src/ tests/` → ✅ Success: no issues found in 22 source files
 - **Quality gates configured:**
   - Ruff: line-length=100, select=[F, E, W, I, B, C4, UP]
   - MyPy: strict=true, Python 3.12, fastf1.* imports ignored
@@ -83,8 +83,15 @@
   - Added `lap_records_from_session` and documented the design/trade-offs in ADR-0005.
   - Verification: 28 offline tests passed, Ruff passed, strict MyPy passed.
 
+- ✅ **Sprint 02 — Historical data acquisition and validation**
+  - Added explicit `InsufficientDataError` handling for empty sessions and sessions with no valid laps, using the existing canonical `IsValid` rule. Provider failures remain `SessionLoadError`; schema failures remain `SchemaValidationError`.
+  - Added offline loader tests for successful loads and metadata, configured cache path, provider lookup/load errors, empty data, schema-invalid data, and no-valid-lap data.
+  - Added `scripts/acquire_sample.py` for the 2024 Monaco Grand Prix Race sample, using the existing `SessionLoader` abstraction and settings/cache configuration.
+  - Documented the sample command and `F1STRATEGY_CACHE_DIR` override in the README. FastF1 remains responsible for cache reuse; no separate cache layer was introduced.
+  - Verification: targeted telemetry tests — 19 passed; offline suite — 34 passed, 1 network test deselected; Ruff passed; strict MyPy passed. The network acquisition test was not run.
+
 ## Current sprint
-**Sprint 01 complete.** Awaiting approval to proceed to Sprint 02.
+**Sprint 02 complete.** Historical sample acquisition and offline validation are implemented and verified.
 
 ## Known decisions (Verified)
 - Develop locally in PyCharm. ✓
@@ -103,4 +110,4 @@
 3. **Prediction target undefined** — PROJECT_PLAN.md mentions "defensible lap-time predictions" but does not specify: next-lap time? average-lap pace under conditions? comparative lap delta? This affects feature engineering, model choice, and data splits. **Mitigation:** Clarify before Sprint 04 (feature engineering).
 
 ## Recommended next sprint
-**Sprint 02 — Historical data acquisition and local cache**, as listed in `PROJECT_PLAN.md`. Define a small reproducible historical dataset and acquisition/cache behavior; do not begin until approved.
+**Define and review Sprint 03 scope** against the existing roadmap in `PROJECT_PLAN.md` before beginning the next sprint. Sprint 02 implementation and offline verification are complete; live network acquisition and end-to-end cache reuse have not been verified.
