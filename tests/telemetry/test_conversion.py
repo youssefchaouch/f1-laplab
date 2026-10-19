@@ -74,6 +74,15 @@ def test_missing_required_lap_flags_are_rejected(
         fastf1_laps_to_frame(raw)
 
 
+def test_missing_deleted_values_are_rejected(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    raw = raw_fastf1_laps.copy()
+    raw[S.DELETED] = pd.Series([False, pd.NA, False], dtype="boolean")
+    with pytest.raises(SchemaValidationError, match="Deleted"):
+        fastf1_laps_to_frame(raw)
+
+
 def test_invalid_lap_number_is_not_replaced_with_a_default(
     raw_fastf1_laps: pd.DataFrame,
 ) -> None:
