@@ -25,6 +25,10 @@ def session_ref() -> SessionRef:
 
 
 def _mock_session(laps: pd.DataFrame, *, load: Mock | None = None) -> SimpleNamespace:
+    def load_with_messages(**kwargs: bool) -> None:
+        if kwargs["messages"]:
+            laps["Deleted"] = False
+
     return SimpleNamespace(
         laps=laps,
         event={
@@ -32,7 +36,7 @@ def _mock_session(laps: pd.DataFrame, *, load: Mock | None = None) -> SimpleName
             "Location": "Monaco",
             "Country": "Monaco",
         },
-        load=load or Mock(),
+        load=load if load is not None else Mock(side_effect=load_with_messages),
     )
 
 
@@ -68,7 +72,7 @@ def test_load_returns_validated_session_and_uses_configured_cache(
     assert loaded.metadata.loaded_with_telemetry
     assert enable_cache.call_args.args == (str(settings.paths.cache),)
     get_session.assert_called_once_with(2024, "Monaco", "R")
-    session.load.assert_called_once_with(telemetry=True, weather=False, messages=False)
+    session.load.assert_called_once_with(telemetry=True, weather=False, messages=True)
 
 
 def test_provider_lookup_failure_raises_session_load_error(

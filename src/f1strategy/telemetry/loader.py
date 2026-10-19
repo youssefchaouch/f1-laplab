@@ -53,7 +53,7 @@ class FastF1SessionLoader:
         logger.info("Loading session %s (telemetry=%s)", ref, with_telemetry)
         try:
             session = fastf1.get_session(ref.year, ref.grand_prix, ref.session.value)
-            session.load(telemetry=with_telemetry, weather=False, messages=False)
+            session.load(telemetry=with_telemetry, weather=False, messages=True)
         except Exception as exc:  # FastF1 raises a variety of error types
             raise SessionLoadError(f"Failed to load {ref}: {exc}") from exc
 
