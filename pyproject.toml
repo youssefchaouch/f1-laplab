@@ -1,0 +1,70 @@
+# Packaging + tooling for the AI Motorsport Strategy Assistant.
+#
+# WHY THIS FILE EXISTS
+#   It turns the repository into an installable package (`pip install -e .`),
+#   which is what makes imports unambiguous regardless of the working directory
+#   and lets `src/` layout work. It is also the single home for tool config
+#   (ruff, mypy, pytest) so quality gates are declared once, in version control.
+#   See docs/adr/0001-layered-clean-architecture.md.
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "f1strategy"
+version = "0.1.0"
+description = "AI Motorsport Strategy Assistant — an F1 telemetry analytics and strategy platform."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Youssef Chaouch" }]
+
+# Runtime dependencies. Pinned with lower bounds (not exact pins) so the library
+# stays installable, while the resolved versions are captured in requirements.txt.
+dependencies = [
+    "fastf1>=3.8",        # F1 timing/telemetry source — confined to the telemetry layer
+    "pandas>=2.2",        # tabular currency for lap/telemetry data
+    "numpy>=2.0",
+    "pandera>=0.22",      # DataFrame schema contracts at layer boundaries (ADR-0003)
+    "scikit-learn>=1.5",  # Phase 4 ML
+    "plotly>=6.0",        # Phase 6 visualization
+]
+
+[project.optional-dependencies]
+# App layer (Phase 6) — kept optional so the core library installs without a UI stack.
+app = ["streamlit>=1.36"]
+# Quality gates (Phase 7) — installed in CI / dev, not required at runtime.
+dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.11", "pandas-stubs>=2.2"]
+
+[project.scripts]
+# Single CLI entrypoint / composition root (authored in a later phase).
+f1strategy = "f1strategy.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --- Quality tooling -------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Sensible, not noisy: pyflakes, pycodestyle, isort, bugbear, comprehensions, pyupgrade.
+select = ["F", "E", "W", "I", "B", "C4", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+# fastf1 ships partial type info; don't fail the build on its internals.
+[[tool.mypy.overrides]]
+module = ["fastf1.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Marker so network-dependent tests can be deselected: `pytest -m "not network"`.
+markers = ["network: test requires FastF1 data (cache or internet)"]

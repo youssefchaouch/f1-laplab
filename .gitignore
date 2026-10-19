@@ -1,0 +1,26 @@
+# --- Data (never committed; reproducible from FastF1) ---
+data/cache/
+data/raw/
+data/processed/
+# keep the empty dirs so the layout is visible
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# --- Env / IDE ---
+.venv/
+.env
+.env.*
+!.env.example
+!.env.*.example
+.envrc
+.idea/
