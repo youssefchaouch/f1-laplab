@@ -24,7 +24,7 @@ import fastf1
 import pandas as pd
 
 from f1strategy.config.settings import Settings
-from f1strategy.domain.errors import SessionLoadError
+from f1strategy.domain.errors import InsufficientDataError, SessionLoadError
 from f1strategy.domain.models import LoadedSession, SessionMetadata, SessionRef
 from f1strategy.telemetry.conversion import fastf1_laps_to_frame
 from f1strategy.telemetry.validation import validate_laps
@@ -48,6 +48,7 @@ class FastF1SessionLoader:
         Raises:
             SessionLoadError: if FastF1 cannot fetch/parse the session.
             SchemaValidationError: if the laps frame violates ``LAPS_SCHEMA``.
+            InsufficientDataError: if the session has no laps or no valid laps.
         """
         logger.info("Loading session %s (telemetry=%s)", ref, with_telemetry)
         try:
@@ -57,6 +58,11 @@ class FastF1SessionLoader:
             raise SessionLoadError(f"Failed to load {ref}: {exc}") from exc
 
         laps = validate_laps(fastf1_laps_to_frame(session.laps))
+        if laps.empty:
+            raise InsufficientDataError(f"Session {ref} contains no laps")
+        if not laps["IsValid"].any():
+            raise InsufficientDataError(f"Session {ref} contains no valid laps")
+
         metadata = self._build_metadata(ref, session, laps, with_telemetry)
         logger.info("Loaded %s: %d laps, %d drivers", ref, metadata.n_laps, metadata.n_drivers)
         return LoadedSession(metadata=metadata, laps=laps)
