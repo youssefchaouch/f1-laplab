@@ -6,8 +6,10 @@ foundation focuses on domain contracts, FastF1 ingestion, and offline validation
 
 ## Current status
 
-**Sprints 00–02 are implemented.** Sprint 02 adds explicit handling of empty
-sessions and a sample-acquisition script for historical data. See the
+**Sprints 00–03 are implemented as worked in this repository.** Sprint 03 was
+reprioritized from the roadmap's data-validation milestone to a deterministic,
+assumption-driven one-stop strategy baseline; roadmap data validation remains
+outstanding. See the
 [project status](motorsport_copilot_playbook/PROJECT_STATUS.md) and
 [project plan](motorsport_copilot_playbook/PROJECT_PLAN.md).
 
@@ -22,6 +24,9 @@ sessions and a sample-acquisition script for historical data. See the
   confined to the telemetry package.
 - **Configuration:** immutable settings with environment overrides and
   project-rooted data/cache paths.
+- **Strategy baseline:** explicit inputs drive a deterministic one-stop
+  comparison with linear tire degradation, configurable pit windows and stint
+  limits, ranked alternatives, and time deltas.
 - **Logging:** explicit, idempotent logging setup; importing the library does
   not configure logging.
 
@@ -77,7 +82,7 @@ python -m mypy src/ tests/
 The offline test command excludes the test marked `network`, which may require
 FastF1 cache data or network access. Run the full suite with
 `python -m pytest` only when that integration test's requirements are available.
-The latest verified offline result is **34 passed, 1 deselected**; Ruff and
+The latest verified offline result is **58 passed, 1 deselected**; Ruff and
 strict MyPy also passed.
 
 ## Acquiring the historical sample
@@ -102,14 +107,51 @@ The script reports the session and lap/driver counts. FastF1 manages cache
 reuse; this project does not implement a second cache layer. Acquisition can
 require network access when the requested data is not already cached.
 
+## Baseline strategy calculation
+
+The strategy engine accepts explicit assumptions and does not load telemetry or
+call FastF1. For example:
+
+```python
+from f1strategy.domain.enums import TireCompound
+from f1strategy.strategy import StrategyConfig, TireDegradation, recommend_strategy
+
+assumptions = StrategyConfig(
+    race_laps=57,
+    baseline_lap_time_s=92.0,
+    pit_stop_loss_s=22.0,
+    tire_degradation=(
+        TireDegradation(TireCompound.SOFT, 0.08),
+        TireDegradation(TireCompound.MEDIUM, 0.05),
+        TireDegradation(TireCompound.HARD, 0.03),
+    ),
+    min_stint_laps=5,
+    max_stint_laps=40,
+    pit_window_start_lap=15,
+    pit_window_end_lap=35,
+)
+result = recommend_strategy(assumptions)
+```
+
+These values are illustrative, not calibrated to a circuit, car, driver, or
+race. Every compound uses the same baseline lap time; compounds differ only in
+the configured linear degradation rate. Consequently, the model may prefer the
+compound with the lowest configured degradation for both stints. Lap time is
+modeled as baseline plus degradation rate multiplied by tire age; tire age
+starts at zero on each stint's first lap. Pit loss is added once. The engine
+models exactly one stop, does not enforce sporting compound rules, and does not
+account for initial compound pace offsets, fuel, traffic, weather, safety cars,
+or pit-window dynamics. Its recommendation is fastest only under the supplied
+assumptions, not a real-world optimum.
+
 ## Planned work and current limits
 
-The roadmap proceeds from historical data acquisition and cache behavior
-(Sprint 02) to validation/normalization, leakage-safe features, baseline model
-evaluation, experiment tracking, inference, monitoring, retraining, and a
-minimal strategy simulation. These are **planned**, not currently implemented.
-There is no implemented ML predictor, pit-stop optimizer, race/strategy
-simulator, dashboard, or database.
+The roadmap's data validation/normalization, leakage-safe features, baseline
+model evaluation, experiment tracking, inference, monitoring, retraining, and
+prediction-backed strategy simulation remain planned. The current strategy
+engine is an illustrative deterministic baseline; it is not an ML predictor, a
+calibrated pit-stop optimizer, or a full race simulator. There is no dashboard
+or database.
 
 Although scikit-learn, Plotly, and an optional Streamlit extra are declared as
 dependencies, their planned modeling and application capabilities are not yet

@@ -1,7 +1,7 @@
 # Project Status
 
 ## Current stage
-**Sprint 02 implemented and verified.** Historical sample acquisition uses the existing FastF1 loader and configured cache. Empty sessions and sessions with no valid laps raise `InsufficientDataError`. See the README for the sample command and cache override.
+**Sprint 03 baseline strategy engine implemented and verified.** This was a user-directed reprioritization of the roadmap's Sprint 03 data-validation milestone, which remains outstanding.
 
 ## Verified existing components
 ✅ **Domain layer** — Complete and well-structured
@@ -22,12 +22,18 @@
   - ProjectPaths (absolute, deterministic paths)
   - configure_logging (idempotent, stream-based)
 
+✅ **Strategy layer** — Deterministic baseline engine
+  - Models one-stop strategies from explicit race, tire-degradation, pit-loss, and stint/pit-window assumptions.
+  - Uses one shared baseline lap time across compounds with linear tire degradation; age is zero on the first lap of each stint. Inputs are illustrative, not calibrated, and the model has no initial compound pace offsets or sporting compound rules.
+  - Ranks complete race strategies, explains the winner, and reports time deltas for alternatives. No telemetry or network access is required.
+
 ✅ **Tests** — Comprehensive and offline
   - test_conversion.py — conversion, optional-value, identity, and deterministic record tests (no network)
   - test_lap_record.py — LapRecord invariants and validity-rule tests
   - test_schemas.py — 3 tests validating boundary contracts
   - test_import_boundaries.py — 1 test enforcing fastf1 isolation
   - test_loader_network.py — 1 marked network test (Monaco 2024)
+  - test_engine.py — deterministic strategy model, feasibility, ranking, and input validation (offline)
   - conftest.py — 2 fixtures (raw_fastf1_laps, settings)
 
 ✅ **Architecture enforcement** — ADRs documented and mechanically tested
@@ -39,9 +45,9 @@
 ## Verified baseline
 - **Python version:** ≥3.12 (configured in pyproject.toml: requires-python = ">=3.12")
 - **Dependency/install command:** `pip install -e ".[dev]"` (core + ruff, mypy, pytest, pandas-stubs)
-- **Test command:** `python -m pytest -m "not network"` → ✅ 34 passed, 1 deselected
+- **Test command:** `python -m pytest -m "not network"` → ✅ 58 passed, 1 deselected
 - **Lint command:** `python -m ruff check src/ tests/` → ✅ All checks passed (4 UP042/UP037 fixed)
-- **Type-check command:** `python -m mypy src/ tests/` → ✅ Success: no issues found in 22 source files
+- **Type-check command:** `python -m mypy src/ tests/` → ✅ Success: no issues found in 25 source files
 - **Quality gates configured:**
   - Ruff: line-length=100, select=[F, E, W, I, B, C4, UP]
   - MyPy: strict=true, Python 3.12, fastf1.* imports ignored
@@ -90,8 +96,15 @@
   - Documented the sample command and `F1STRATEGY_CACHE_DIR` override in the README. FastF1 remains responsible for cache reuse; no separate cache layer was introduced.
   - Verification: targeted telemetry tests — 19 passed; offline suite — 34 passed, 1 network test deselected; Ruff passed; strict MyPy passed. The network acquisition test was not run.
 
+- ✅ **Sprint 03 — Baseline F1 race strategy engine (user-directed scope)**
+  - Added a pure strategy layer for explicit, configurable linear tire-degradation assumptions, stint-time estimates, feasible one-stop generation, pit-loss accounting, deterministic ranking, and alternatives with time deltas.
+  - Constraints and inputs are validated; recommendation includes its assumptions and an explanation. Tire age is zero on the first lap of each stint.
+  - Values remain caller-supplied and illustrative, not calibrated. All compounds share one baseline pace and differ only by degradation rate; initial compound pace offsets, sporting compound rules, multi-stop strategies, traffic, weather, fuel, and safety cars are not modeled.
+  - Verification: offline suite — 58 passed, 1 network test deselected; Ruff passed; strict MyPy passed; `git diff --check` passed.
+  - Reprioritization note: the existing roadmap's Sprint 03 data-validation/normalization milestone remains outstanding; this implementation does not claim to complete it.
+
 ## Current sprint
-**Sprint 02 complete.** Historical sample acquisition and offline validation are implemented and verified.
+**Sprint 03 baseline engine complete.** Existing roadmap data validation/normalization remains pending.
 
 ## Known decisions (Verified)
 - Develop locally in PyCharm. ✓
@@ -110,4 +123,4 @@
 3. **Prediction target undefined** — PROJECT_PLAN.md mentions "defensible lap-time predictions" but does not specify: next-lap time? average-lap pace under conditions? comparative lap delta? This affects feature engineering, model choice, and data splits. **Mitigation:** Clarify before Sprint 04 (feature engineering).
 
 ## Recommended next sprint
-**Define and review Sprint 03 scope** against the existing roadmap in `PROJECT_PLAN.md` before beginning the next sprint. Sprint 02 implementation and offline verification are complete; live network acquisition and end-to-end cache reuse have not been verified.
+**Review roadmap sequencing** before selecting the next sprint. The planned data validation/normalization milestone remains outstanding; do not treat the user-directed Sprint 03 strategy baseline as completing that separate roadmap work.
