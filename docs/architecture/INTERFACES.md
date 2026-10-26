@@ -93,15 +93,17 @@ class SessionLoader(Protocol):
     """Implemented by telemetry.FastF1SessionLoader. Tests use a fake."""
     def load(self, ref: SessionRef, *, with_telemetry: bool = False) -> LoadedSession: ...
 
-class FeatureBuilder(Protocol):
-    def build(self, session: LoadedSession) -> "FeatureFrame": ...
-
-class Predictor(Protocol):
-    """Common shape for ML models so strategy depends on the interface, not sklearn."""
-    def fit(self, X, y) -> "Predictor": ...
-    def predict(self, X) -> "numpy.ndarray": ...
-    def metrics(self) -> dict[str, float]: ...
+# Future feature-builder adapter (not implemented): Sprint 04 currently exposes
+# f1strategy.features.build_lap_features(session) -> LapFeatureDataset.
+# The implemented return contract is documented in §3 below.
 ```
+
+Predictor integration is **proposed/deferred**; no predictor API is implemented.
+Any future model must take model inputs only from `LapFeatureDataset.features`
+and use `LapFeatureDataset.labels` separately for training/evaluation. Its
+identifiers and metadata provide traceability, not predictors. See the
+implemented Sprint 04 contract below; do not treat the former `FeatureFrame`
+proposal as an active interface.
 
 ---
 
@@ -115,21 +117,36 @@ class FastF1SessionLoader:                      # implements SessionLoader
 
 def validate_laps(df: pandas.DataFrame) -> pandas.DataFrame:   # raises SchemaValidationError
     ...
-def filter_valid_laps(df: pandas.DataFrame) -> pandas.DataFrame:  # IsAccurate & not Deleted & LapTime present
+def validate_laps_with_report(df: pandas.DataFrame) -> LapValidationReport:
+    ...  # row reasons, deterministic counts, and cleaned canonical laps
+def filter_valid_laps(df: pandas.DataFrame) -> pandas.DataFrame:
+    ...  # canonical-valid laps with duplicate (Driver, LapNumber) groups excluded
     ...
 ```
 > Owns the **only** `import fastf1` in the codebase. Converts fastf1 → `LoadedSession`.
 
-### `features/` (Agent 2)
+### `features/` (implemented Sprint 04 contract)
 ```python
 @dataclass(frozen=True)
-class FeatureFrame:
-    data: pandas.DataFrame        # conforms to FEATURES_SCHEMA
-    feature_names: tuple[str, ...]
-    target_name: str | None
+class LapFeatureDataset:
+    metadata: LapFeatureMetadata
+    identifiers: pandas.DataFrame
+    features: pandas.DataFrame     # exactly the approved prior-only feature columns
+    labels: pandas.Series          # target_lap_time_s, kept outside features
+    excluded_laps: tuple[ExcludedLap, ...]
 
-def build_lap_features(session: LoadedSession) -> FeatureFrame: ...
+def build_lap_features(session: LoadedSession) -> LapFeatureDataset: ...
 ```
+The actual public contract is implemented in
+`f1strategy.features.lap_features`. `identifiers`, `features`, and `labels`
+have aligned deterministic row order; identifiers are trace keys, not model
+inputs. The label is the target lap's observed time, and the only v1 features
+are `previous_lap_time_s`, `prior_3lap_mean_time_s`, and
+`prior_3lap_valid_count`, each computed from exact prior lap-number slots.
+Eligible target duplicates raise `SchemaValidationError`; the builder does not
+consume `validate_laps_with_report().cleaned_laps`, which excludes duplicate
+identity groups. This replaces the illustrative `FeatureFrame`/`FEATURES_SCHEMA`
+proposal below; no `FEATURES_SCHEMA` is currently implemented.
 
 ### `analytics/` (Agent 2)
 ```python
@@ -154,17 +171,21 @@ def tire_degradation(session: LoadedSession) -> list[StintSummary]: ...
 def teammate_comparison(session: LoadedSession, team: str) -> "TeammateDelta": ...
 ```
 
-### `models/` (Agent 3)
+### `models/` (proposed/deferred; not implemented)
 ```python
 class LapTimePredictor:                          # implements Predictor
     def __init__(self, settings: Settings) -> None: ...
-    def fit(self, features: FeatureFrame) -> "LapTimePredictor": ...
-    def predict(self, features: FeatureFrame) -> numpy.ndarray: ...
+    def fit(self, dataset: LapFeatureDataset) -> "LapTimePredictor": ...
+    def predict(self, dataset: LapFeatureDataset) -> numpy.ndarray: ...
     def metrics(self) -> dict[str, float]: ...   # MAE, RMSE, R²
     def save(self, path: Path) -> None: ...
     @classmethod
     def load(cls, path: Path) -> "LapTimePredictor": ...
 ```
+This is illustrative future work, not a current public API. A future
+implementation must use `dataset.features` as `X` and keep `dataset.labels`
+separate; prediction must not consume labels. No model training or evaluation
+is part of Sprint 04.
 
 ### `strategy/` (Agent 4)
 ```python
@@ -191,8 +212,10 @@ def tire_deg_figure(stints: list[StintSummary]) -> plotly.graph_objects.Figure: 
 
 ## 4. DataFrame schema contracts
 
-DataFrames that cross a boundary are validated. Each schema declares column names,
-dtypes, and nullability. (ADR-0003 covers `pandera` vs. hand-rolled.)
+The canonical telemetry boundary frame is validated with `LAPS_SCHEMA`. Sprint
+04 feature outputs have their own fixed, documented columns and typed result
+contract, but are not currently represented by a Pandera `FEATURES_SCHEMA`.
+(ADR-0003 covers `pandera` vs. hand-rolled contracts.)
 
 **`LAPS_SCHEMA`** — produced by `telemetry`, consumed by `features`/`analytics`:
 
@@ -201,17 +224,27 @@ dtypes, and nullability. (ADR-0003 covers `pandera` vs. hand-rolled.)
 | `Driver` | str | no | 3-letter code |
 | `Team` | str | no | |
 | `LapNumber` | int | no | |
-| `Stint` | int | no | |
-| `Compound` | category(`TireCompound`) | no | normalized to the enum |
-| `TyreLife` | int | no | laps on current set |
+| `Stint` | nullable int | yes | |
+| `Compound` | str | no | normalized to `TireCompound`; `UNKNOWN` sentinel |
+| `TyreLife` | nullable int | yes | laps on current set |
 | `LapTime_s` | float | yes | seconds; null = no time set |
 | `IsAccurate` | bool | no | |
 | `Deleted` | bool | no | |
 | `IsValid` | bool | no | derived: accurate & not deleted & laptime present |
+| `IsPitInLap` | nullable bool | yes | derived from FastF1 `PitInTime`; missing stays unknown |
+| `IsPitOutLap` | nullable bool | yes | derived from FastF1 `PitOutTime`; missing stays unknown |
+| `TrackStatus` | nullable str | yes | preserved FastF1 status code; non-clear values warn, not validity inputs |
+
+`validate_laps` rejects schema violations and inconsistent `IsValid` values.
+`validate_laps_with_report` preserves invalid rows in its input, explains
+exclusions and warnings, and excludes every row sharing a duplicate driver/lap
+identity from its cleaned result.
 
 > Note we convert FastF1's `LapTime` (timedelta) into `LapTime_s` (float seconds)
 > at the boundary, so no downstream layer deals with timedeltas or fastf1 dtypes.
 
-**`FEATURES_SCHEMA`** — produced by `features`, consumed by `analytics`/`models`:
-adds engineered columns (`tyre_life_sq`, `fuel_corrected_laptime_s`,
-`compound_ohe_*`, `is_outlap`, `is_inlap`, …). Specified fully in Phase 2.
+There is no implemented `FEATURES_SCHEMA`. Sprint 04's feature output is the
+typed, documented `LapFeatureDataset` above. Target-row compound, tyre state,
+pit markers, track status, validity flags, target time, final results, and
+future-derived aggregates are not predictors because their availability before
+the target lap begins is not established or they are inherently post-cutoff.

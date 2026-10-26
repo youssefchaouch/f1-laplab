@@ -10,7 +10,11 @@ from f1strategy.domain.enums import SessionType
 from f1strategy.domain.errors import SchemaValidationError
 from f1strategy.domain.models import LoadedSession, SessionMetadata, SessionRef
 from f1strategy.telemetry.conversion import fastf1_laps_to_frame, lap_records_from_session
-from f1strategy.telemetry.validation import filter_valid_laps, validate_laps
+from f1strategy.telemetry.validation import (
+    filter_valid_laps,
+    validate_laps,
+    validate_laps_with_report,
+)
 
 
 def test_conversion_produces_exact_schema_columns(raw_fastf1_laps: pd.DataFrame) -> None:
@@ -36,6 +40,41 @@ def test_is_valid_derivation(raw_fastf1_laps: pd.DataFrame) -> None:
     # Row 2 had IsAccurate=False and no LapTime -> invalid.
     assert frame.loc[0, S.IS_VALID]
     assert not frame.loc[2, S.IS_VALID]
+
+
+def test_pit_event_times_are_preserved_as_nullable_lap_flags(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    frame = fastf1_laps_to_frame(raw_fastf1_laps)
+
+    assert frame.loc[0, S.IS_PIT_OUT_LAP]
+    assert frame.loc[1, S.IS_PIT_IN_LAP]
+    assert frame[S.IS_PIT_IN_LAP].dtype.name == "boolean"
+
+
+def test_track_status_is_preserved_and_non_clear_laps_are_reported(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    frame = fastf1_laps_to_frame(raw_fastf1_laps)
+    report = validate_laps_with_report(frame)
+
+    assert frame.loc[1, S.TRACK_STATUS] == "2"
+    issue = next(item for item in report.issues if item.lap_number == 2)
+    assert "non_clear_track_status" in issue.reasons
+    assert not issue.excluded
+
+
+def test_missing_pit_event_columns_remain_unknown(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    raw = raw_fastf1_laps.drop(
+        columns=["PitInTime", "PitOutTime", S.TRACK_STATUS]
+    )
+    frame = validate_laps(fastf1_laps_to_frame(raw))
+
+    assert frame[S.IS_PIT_IN_LAP].isna().all()
+    assert frame[S.IS_PIT_OUT_LAP].isna().all()
+    assert frame[S.TRACK_STATUS].isna().all()
 
 
 def test_validate_then_filter_valid_laps(raw_fastf1_laps: pd.DataFrame) -> None:
@@ -89,6 +128,91 @@ def test_invalid_lap_number_is_not_replaced_with_a_default(
     raw = raw_fastf1_laps.assign(LapNumber=[0, 2, 1])
     with pytest.raises(SchemaValidationError):
         validate_laps(fastf1_laps_to_frame(raw))
+
+
+@pytest.mark.parametrize("lap_time", ["0:00:00", "-0:00:01"])
+def test_non_positive_lap_times_are_rejected(
+    raw_fastf1_laps: pd.DataFrame,
+    lap_time: str,
+) -> None:
+    raw = raw_fastf1_laps.copy()
+    raw.loc[0, "LapTime"] = pd.Timedelta(lap_time)
+
+    with pytest.raises(SchemaValidationError):
+        validate_laps(fastf1_laps_to_frame(raw))
+
+
+def test_inconsistent_is_valid_flag_is_rejected(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    frame = fastf1_laps_to_frame(raw_fastf1_laps)
+    frame.loc[0, S.IS_VALID] = False
+
+    with pytest.raises(SchemaValidationError, match="IsValid must equal"):
+        validate_laps(frame)
+
+
+def test_validation_report_excludes_invalid_rows_with_reasons(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    frame = fastf1_laps_to_frame(raw_fastf1_laps)
+
+    report = validate_laps_with_report(frame)
+
+    assert report.input_rows == 3
+    assert report.retained_rows == 2
+    assert report.excluded_rows == 1
+    assert report.issues[-1].reasons == ("inaccurate_lap", "missing_lap_time")
+    assert report.issues[-1].excluded
+    assert list(validate_laps(report.cleaned_laps).columns) == list(S.LAPS_COLUMNS)
+    assert report.cleaned_laps[S.IS_VALID].all()
+
+
+def test_duplicate_driver_lap_identities_are_all_excluded_with_reasons(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    frame = fastf1_laps_to_frame(raw_fastf1_laps)
+    duplicate = frame.iloc[[0]].copy()
+    frame = pd.concat([frame, duplicate], ignore_index=True)
+
+    report = validate_laps_with_report(frame)
+
+    duplicate_issues = [
+        issue for issue in report.issues if "duplicate_identity" in issue.reasons
+    ]
+    assert len(duplicate_issues) == 2
+    assert all(issue.excluded for issue in duplicate_issues)
+    assert report.retained_rows == 1
+    assert report.excluded_rows == 3
+    assert dict(report.reason_counts)["duplicate_identity"] == 2
+
+
+def test_pit_laps_are_reported_as_warnings_not_excluded(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    frame = fastf1_laps_to_frame(raw_fastf1_laps)
+
+    report = validate_laps_with_report(frame)
+
+    pit_issues = [
+        issue for issue in report.issues if "pit_out_lap" in issue.reasons
+    ]
+    assert len(pit_issues) == 1
+    assert not pit_issues[0].excluded
+    assert report.retained_rows == 2
+
+
+def test_validation_report_is_reproducible(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    frame = fastf1_laps_to_frame(raw_fastf1_laps)
+
+    first = validate_laps_with_report(frame)
+    second = validate_laps_with_report(frame)
+
+    assert first.summary == second.summary
+    assert first.reason_counts == second.reason_counts
+    assert first.issues == second.issues
 
 
 def test_records_preserve_session_identity_and_are_deterministic(

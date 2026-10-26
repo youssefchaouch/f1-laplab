@@ -10,6 +10,7 @@ from f1strategy.domain.errors import F1StrategyError
 from f1strategy.domain.models import SessionRef
 from f1strategy.domain.protocols import SessionLoader
 from f1strategy.telemetry.loader import FastF1SessionLoader
+from f1strategy.telemetry.validation import validate_laps_with_report
 
 
 class AcquisitionSetupError(Exception):
@@ -41,10 +42,10 @@ def main() -> int:
         print(f"Failed to acquire {ref} from FastF1: {exc}", file=sys.stderr)
         return 1
 
-    n_valid_laps = int(loaded.laps["IsValid"].sum())
+    report = validate_laps_with_report(loaded.laps)
     print(
-        f"FastF1: {ref} — {loaded.metadata.n_laps} laps, "
-        f"{n_valid_laps} valid laps, {loaded.metadata.n_drivers} drivers"
+        f"FastF1: {ref} | {loaded.metadata.n_drivers} drivers; "
+        f"{report.summary}"
     )
     return 0
 

@@ -36,6 +36,9 @@ def fastf1_laps_to_frame(raw: pd.DataFrame) -> pd.DataFrame:
     lap_time_s = _timedelta_to_seconds(raw.get("LapTime"), index=raw.index)
     is_accurate = _to_bool(raw.get(S.IS_ACCURATE), field_name=S.IS_ACCURATE)
     deleted = _to_bool(raw.get(S.DELETED), field_name=S.DELETED)
+    is_pit_in_lap = _to_optional_event_flag(raw.get("PitInTime"), index=raw.index)
+    is_pit_out_lap = _to_optional_event_flag(raw.get("PitOutTime"), index=raw.index)
+    track_status = _optional_string(raw.get(S.TRACK_STATUS), index=raw.index)
 
     frame = pd.DataFrame(
         {
@@ -63,6 +66,9 @@ def fastf1_laps_to_frame(raw: pd.DataFrame) -> pd.DataFrame:
             S.LAP_TIME_S: lap_time_s,
             S.IS_ACCURATE: is_accurate,
             S.DELETED: deleted,
+            S.IS_PIT_IN_LAP: is_pit_in_lap,
+            S.IS_PIT_OUT_LAP: is_pit_out_lap,
+            S.TRACK_STATUS: track_status,
         }
     )
     frame[S.IS_VALID] = pd.Series(
@@ -99,6 +105,9 @@ def lap_records_from_session(session: LoadedSession) -> tuple[LapRecord, ...]:
             lap_time_s=None if pd.isna(lap_time) else float(lap_time),
             is_accurate=bool(row[S.IS_ACCURATE]),
             deleted=bool(row[S.DELETED]),
+            is_pit_in_lap=_optional_bool(row[S.IS_PIT_IN_LAP]),
+            is_pit_out_lap=_optional_bool(row[S.IS_PIT_OUT_LAP]),
+            track_status=_optional_string_value(row[S.TRACK_STATUS]),
         )
         if bool(row[S.IS_VALID]) != record.is_valid:
             raise SchemaValidationError("IsValid does not match the canonical lap-validity rule")
@@ -144,6 +153,27 @@ def _to_bool(series: pd.Series | None, *, field_name: str) -> pd.Series:
     return series.astype(bool)
 
 
+def _to_optional_event_flag(series: pd.Series | None, *, index: pd.Index) -> pd.Series:
+    """Represent source event timestamps as nullable booleans without inventing data."""
+    if series is None:
+        return pd.Series(pd.NA, index=index, dtype="boolean")
+    return series.notna().astype("boolean")
+
+
+def _optional_string(series: pd.Series | None, *, index: pd.Index) -> pd.Series:
+    if series is None:
+        return pd.Series(pd.NA, index=index, dtype="string")
+    return series.astype("string")
+
+
+def _optional_string_value(value: object) -> str | None:
+    if value is None or value is pd.NA:
+        return None
+    if isinstance(value, str):
+        return value
+    raise SchemaValidationError(f"Expected a string or missing value, got {value!r}")
+
+
 def _driver_codes(series: pd.Series | None) -> pd.Series:
     if series is None or series.isna().any():
         raise SchemaValidationError("Driver must contain a non-missing driver code")
@@ -175,3 +205,11 @@ def _optional_int(value: object) -> int | None:
     if isinstance(value, Integral):
         return int(value)
     raise SchemaValidationError(f"Expected an integer or missing value, got {value!r}")
+
+
+def _optional_bool(value: object) -> bool | None:
+    if value is pd.NA or value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    raise SchemaValidationError(f"Expected a boolean or missing value, got {value!r}")
