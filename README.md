@@ -38,12 +38,15 @@ FastF1 session
   -> LoadedSession
       -> LapRecord values (optional representation)
       -> LapFeatureDataset
+          -> matplotlib figures (visualization)
 ```
 
 `domain` owns session identities, metadata, typed lap records, protocols,
 enums, and the schema. `config` owns injected settings, project paths, and
 logging. `telemetry` loads and converts FastF1 data and validates canonical
 frames. `features` builds session-local, prior-only lap datasets.
+`visualization` turns those validated objects into static matplotlib figures;
+it loads no data and writes no files, returning figures for the caller to save.
 
 The existing `strategy` package is a retained, illustrative deterministic
 baseline using explicit assumptions. It is not part of the LapLab data pipeline
@@ -105,8 +108,10 @@ is local, ignored by Git, and is not required by the demonstration. Real-session
 loading may require external FastF1 services when data is not cached; the sample
 acquisition script is optional, not part of the offline demo.
 
-The reproducible demo uses a **small synthetic fixture**, clearly labelled in
-its output. It does not represent actual Formula 1 telemetry or performance.
+The committed figures are rendered from a 2024 Monaco race session held in a
+local FastF1 cache and are labelled with that provenance; the underlying data is
+still not distributed here. The reproducible demo uses a **small synthetic
+fixture**, clearly labelled in its output. It does not represent actual Formula 1 telemetry or performance.
 No trained prediction model, model evaluation, race replay, or race strategy
 simulation is included. Historical provider availability, cache contents, and
 lap-quality caveats remain relevant when using real sessions.
@@ -124,6 +129,52 @@ python -m pip install -e ".[dev]"
 
 This installs the project and its declared development tools. If activation is
 restricted, invoke `.\.venv\Scripts\python.exe` directly instead.
+
+## Figures
+
+Real pipeline output, not a mock-up: the 2024 Monaco Grand Prix race, 1237 lap
+records from 20 drivers. Panels are validated lap times with exclusions marked,
+the validation outcome split into exclusions and warnings, prior-history depth,
+and the predictor against its label.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/monaco-pipeline-overview-dark.png">
+  <img alt="F1 LapLab pipeline on the 2024 Monaco Grand Prix: lap times, validation outcome, history depth, and predictor vs label"
+       src="docs/images/monaco-pipeline-overview-light.png">
+</picture>
+
+Reading them in order: 1183 of 1237 laps survive canonical validation, so 54 are
+excluded. The reason bars sum higher than 54 because they overlap -- 11 laps are
+both inaccurate and missing a time -- and the chart says so rather than leaving
+the reader to add them up. Exclusions are kept separate from warnings that leave
+a lap eligible (pit in/out, non-clear track status). 1106 target laps have all
+three prior slots available. The predictor tracks the label closely but
+not exactly, and that gap is what any later model would have to earn.
+
+The lap-time axis is scaled to racing pace, and laps outside that range are
+counted on the chart rather than dropped: the race was red-flagged, so the
+longest lap record exceeds 2500 seconds.
+
+These are rendered from a FastF1 session held in a local cache. **No race data
+is distributed in this repository** -- the images are derived charts. To
+reproduce them you need that session in your own cache:
+
+```powershell
+python examples\render_figures.py --session 2024 "Monaco Grand Prix" R `
+    --highlight LEC PIA SAI --prefix monaco-
+```
+
+That path reads the FastF1 cache and fetches over the network if the session is
+not cached. The default command needs neither, rendering the same five figures
+from the synthetic fixture:
+
+```powershell
+python examples\render_figures.py
+```
+
+The builders are pure functions -- validated domain objects in, a matplotlib
+`Figure` out -- so they are unit tested by inspecting the figure rather than by
+comparing pixels, and they need no display backend.
 
 ## Reproducible offline demonstration
 

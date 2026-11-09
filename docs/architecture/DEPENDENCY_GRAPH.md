@@ -20,7 +20,7 @@ graph TD
     analytics[analytics<br/>pace · tire · stint · teammate]
     models[models<br/>ML pipelines]
     strategy[strategy<br/>pit · undercut · sim]
-    viz[visualization<br/>plotly figures]
+    viz[visualization<br/>matplotlib figures]
     app[app / cli<br/>streamlit · composition root]
 
     telemetry --> domain

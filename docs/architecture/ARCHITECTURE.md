@@ -15,6 +15,7 @@ SessionRef
   -> LoadedSession
       -> lap_records_from_session -> tuple[LapRecord, ...]
       -> build_lap_features -> LapFeatureDataset
+          -> visualization.*_figure -> matplotlib Figure
 ```
 
 The synthetic demonstration exercises the in-memory portion of this flow
@@ -28,6 +29,7 @@ without calling FastF1 or accessing the cache.
 | `config` | Injected settings, absolute project data/cache paths, and explicit logging setup. |
 | `telemetry` | FastF1 session loading, provider-to-canonical conversion, and lap validation. This is the only package that imports FastF1. |
 | `features` | Deterministic prior-only feature construction for one `LoadedSession` at a time. |
+| `visualization` | Static matplotlib figures built from validated domain objects. Loads no data and writes no files; returns figures for the caller to save. |
 | `strategy` | Retained illustrative assumption-based one-stop ranking code; outside the LapLab pipeline and not a race simulator. |
 
 Tests mirror the package boundaries. Conversion, validation, feature
