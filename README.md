@@ -1,166 +1,171 @@
-# AI Motorsport Strategy Framework
+# F1 LapLab
 
-A Python framework for building reproducible Formula 1 telemetry and race-strategy
-analysis. The project is being developed in small, testable sprints; its current
-foundation focuses on domain contracts, FastF1 ingestion, and offline validation.
+**Formula 1 Lap Data Engineering & Feature Engineering**
 
-## Current status
+F1 LapLab is a focused Python pipeline that transforms historical Formula 1
+timing data into validated, structured, leakage-safe lap-level datasets suitable
+for future machine-learning work. It demonstrates data ingestion, canonical
+validation, domain modelling, temporal feature engineering, and automated
+quality checks. **It is not a completed predictive ML system or a race strategy
+simulator.**
 
-**Sprints 00–03 are implemented as worked in this repository.** Sprint 03 was
-reprioritized from the roadmap's data-validation milestone to a deterministic,
-assumption-driven one-stop strategy baseline; roadmap data validation remains
-outstanding. See the
-[project status](motorsport_copilot_playbook/PROJECT_STATUS.md) and
-[project plan](motorsport_copilot_playbook/PROJECT_PLAN.md).
+## Problem and capabilities
 
-## Implemented capabilities
+Historical timing data arrives in provider-specific formats and can contain
+missing, invalid, duplicated, or otherwise exceptional lap records. F1 LapLab
+isolates the FastF1 boundary, converts data into an explicit canonical contract,
+records validation exclusions, and builds prior-only features for predicting an
+observed upcoming lap time.
 
-- **Domain contracts:** session references and metadata, loaded-session and
-  immutable per-lap models, session/tyre enums, a `SessionLoader` protocol, and
-  the Pandera `LAPS_SCHEMA`.
-- **Telemetry boundary:** `FastF1SessionLoader` loads sessions using the
-  configured cache; conversion normalizes lap times and compounds; validation
-  enforces the lap schema and provides valid-lap filtering. FastF1 imports are
-  confined to the telemetry package.
-- **Configuration:** immutable settings with environment overrides and
-  project-rooted data/cache paths.
-- **Strategy baseline:** explicit inputs drive a deterministic one-stop
-  comparison with linear tire degradation, configurable pit windows and stint
-  limits, ranked alternatives, and time deltas.
-- **Logging:** explicit, idempotent logging setup; importing the library does
-  not configure logging.
+- Load a selected session through the FastF1 adapter and configured cache.
+- Convert timing data into the strict canonical lap schema.
+- Validate canonical validity and report excluded rows and warnings.
+- Represent canonical rows as typed `LapRecord` values.
+- Build aligned identifiers, features, labels, and exclusion traces for each
+  session, without crossing session boundaries.
+- Run offline tests without accessing F1 data services.
 
-The test suite includes deterministic offline tests and a separately marked
-network/cache-dependent FastF1 integration test.
+## Architecture and data flow
 
-## Architecture and decisions
+The installable `f1strategy` package uses a `src/` layout and keeps provider
+coupling behind the telemetry boundary:
 
-The package uses a `src/` layout. Telemetry adapts FastF1 data into owned domain
-contracts; schemas validate DataFrames at boundaries, and downstream code can
-use the immutable `LapRecord` representation. See:
+```text
+FastF1 session
+  -> FastF1SessionLoader
+  -> FastF1-to-canonical conversion
+  -> LAPS_SCHEMA validation
+  -> LoadedSession
+      -> LapRecord values (optional representation)
+      -> LapFeatureDataset
+```
 
-- [Architecture overview](docs/architecture/ARCHITECTURE.md)
-- [Dependency graph](docs/architecture/DEPENDENCY_GRAPH.md)
-- [Module contracts and interfaces](docs/architecture/INTERFACES.md)
-- [Current-state review](docs/architecture/CURRENT_STATE_REVIEW.md)
-- [Architecture Decision Records](docs/adr/README.md), including
-  [ADR-0001: layered architecture](docs/adr/0001-layered-clean-architecture.md),
-  [ADR-0002: FastF1 boundary](docs/adr/0002-fastf1-anti-corruption-boundary.md),
-  [ADR-0003: schema contracts](docs/adr/0003-dataframe-schema-contracts.md),
-  [ADR-0004: configuration and paths](docs/adr/0004-configuration-and-paths.md),
-  and [ADR-0005: canonical lap record](docs/adr/0005-canonical-lap-record.md).
+`domain` owns session identities, metadata, typed lap records, protocols,
+enums, and the schema. `config` owns injected settings, project paths, and
+logging. `telemetry` loads and converts FastF1 data and validates canonical
+frames. `features` builds session-local, prior-only lap datasets.
 
-## Prerequisites and setup (Windows PowerShell)
+The existing `strategy` package is a retained, illustrative deterministic
+baseline using explicit assumptions. It is not part of the LapLab data pipeline
+and does not implement a race strategy simulator.
 
-Python **3.12 or newer** and `pip` are required. From the repository root:
+See the [current architecture overview](docs/architecture/ARCHITECTURE.md).
+
+## Feature dataset contract
+
+The public feature API is:
+
+```python
+build_lap_features(LoadedSession) -> LapFeatureDataset
+```
+
+The target is `target_lap_time_s`: the target lap's observed time in seconds.
+The prediction cutoff is immediately before that lap begins. The feature matrix
+contains exactly:
+
+| Feature | Meaning |
+|---|---|
+| `previous_lap_time_s` | Same driver's eligible lap at the exact `n-1` slot. |
+| `prior_3lap_mean_time_s` | Mean of eligible observations in exact slots `n-3` through `n-1`. |
+| `prior_3lap_valid_count` | Number of eligible observations used by that mean (0–3). |
+
+History is session-local and keyed by driver and lap number. Missing or
+ineligible slots remain missing; the mean uses available eligible observations
+in the fixed window and does not backfill or extend it. Every canonically valid
+timed lap is an eligible target, including pit-in/out and non-clear-track-status
+laps. Duplicate eligible driver/lap identities are errors, not silently
+discarded.
+
+Identifiers and labels remain separate from predictors. Target time, target-lap
+state, and future observations are not feature inputs. Tests include
+perturbation and append checks to verify earlier features are unchanged by
+future-lap changes.
+
+### Scope of the leakage guarantee
+
+The guarantee is precise about what it covers. No lap time, event marker, or
+track status at or after the target lap enters a feature. It does not claim
+that every input would have been knowable in a live session: prior-lap
+*eligibility* is the canonical validity rule, which depends on `Deleted` and
+`IsAccurate`. Both are determined after the fact — a lap time can be deleted by
+the stewards some laps later, and `IsAccurate` is derived by the data provider.
+A prior lap can therefore be excluded from history on information that post-dates
+the stated prediction cutoff.
+
+This is a deliberate choice for an offline, historical dataset, where the
+canonical validity rule is applied consistently everywhere. A real-time
+application would need to replace that eligibility test with one that is
+knowable at the cutoff, and would produce different features for the same laps.
+
+## Data availability and limitations
+
+No historical race dataset is included or distributed in this repository. A
+2024 Monaco Race FastF1 cache exists in the original development workspace but
+is local, ignored by Git, and is not required by the demonstration. Real-session
+loading may require external FastF1 services when data is not cached; the sample
+acquisition script is optional, not part of the offline demo.
+
+The reproducible demo uses a **small synthetic fixture**, clearly labelled in
+its output. It does not represent actual Formula 1 telemetry or performance.
+No trained prediction model, model evaluation, race replay, or race strategy
+simulation is included. Historical provider availability, cache contents, and
+lap-quality caveats remain relevant when using real sessions.
+
+## Installation
+
+Requires Python **3.12 or newer**. From the repository root in Windows
+PowerShell:
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-The editable install uses the package configuration in `pyproject.toml`; the
-`dev` extra installs pytest, Ruff, MyPy, and pandas stubs. If PowerShell blocks
-activation, either use the Python executable directly:
+This installs the project and its declared development tools. If activation is
+restricted, invoke `.\.venv\Scripts\python.exe` directly instead.
+
+## Reproducible offline demonstration
+
+From the repository root after installation:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+python examples\synthetic_pipeline.py
 ```
 
-## Quality checks
+The script constructs an in-memory synthetic session, converts and validates
+it, creates `LapRecord` values, and prints the leakage-safe feature/target rows.
+It makes no network request and does not access or modify FastF1 caches.
+
+To load the optional 2024 Monaco sample through FastF1 instead:
+
+```powershell
+python scripts\acquire_sample.py
+```
+
+That command may make network requests and write to FastF1's configured cache.
+The default cache is under `data\cache`; `F1STRATEGY_CACHE_DIR` can select
+another location. The offline demonstration and tests do not require this step.
+
+## Tests and code quality
 
 Run from the repository root:
 
 ```powershell
 python -m pytest -m "not network"
-python -m ruff check src/ tests/
-python -m mypy src/ tests/
+python -m ruff check src\ tests\ examples\ scripts\
+python -m mypy src\ tests\ examples\ scripts\
+git diff --check
 ```
 
-The offline test command excludes the test marked `network`, which may require
-FastF1 cache data or network access. Run the full suite with
-`python -m pytest` only when that integration test's requirements are available.
-The latest verified offline result is **58 passed, 1 deselected**; Ruff and
-strict MyPy also passed.
+The `network`-marked FastF1 integration test is excluded from the offline test
+command. Run it only when the required cached data or external access is
+available and explicitly intended.
 
-## Acquiring the historical sample
+## Future possibilities
 
-After installing the project in editable mode, run this from the repository
-root to load the **2024 Monaco Grand Prix Race** through the existing FastF1
-loader:
-
-```powershell
-python scripts/acquire_sample.py
-```
-
-FastF1 uses its cache under the configured project data directory by default.
-To use a different cache location, set `F1STRATEGY_CACHE_DIR` before running:
-
-```powershell
-$env:F1STRATEGY_CACHE_DIR = "C:\f1strategy-cache"
-python scripts/acquire_sample.py
-```
-
-The script reports the session and lap/driver counts. FastF1 manages cache
-reuse; this project does not implement a second cache layer. Acquisition can
-require network access when the requested data is not already cached.
-
-## Baseline strategy calculation
-
-The strategy engine accepts explicit assumptions and does not load telemetry or
-call FastF1. For example:
-
-```python
-from f1strategy.domain.enums import TireCompound
-from f1strategy.strategy import StrategyConfig, TireDegradation, recommend_strategy
-
-assumptions = StrategyConfig(
-    race_laps=57,
-    baseline_lap_time_s=92.0,
-    pit_stop_loss_s=22.0,
-    tire_degradation=(
-        TireDegradation(TireCompound.SOFT, 0.08),
-        TireDegradation(TireCompound.MEDIUM, 0.05),
-        TireDegradation(TireCompound.HARD, 0.03),
-    ),
-    min_stint_laps=5,
-    max_stint_laps=40,
-    pit_window_start_lap=15,
-    pit_window_end_lap=35,
-)
-result = recommend_strategy(assumptions)
-```
-
-These values are illustrative, not calibrated to a circuit, car, driver, or
-race. Every compound uses the same baseline lap time; compounds differ only in
-the configured linear degradation rate. Consequently, the model may prefer the
-compound with the lowest configured degradation for both stints. Lap time is
-modeled as baseline plus degradation rate multiplied by tire age; tire age
-starts at zero on each stint's first lap. Pit loss is added once. The engine
-models exactly one stop, does not enforce sporting compound rules, and does not
-account for initial compound pace offsets, fuel, traffic, weather, safety cars,
-or pit-window dynamics. Its recommendation is fastest only under the supplied
-assumptions, not a real-world optimum.
-
-## Planned work and current limits
-
-The roadmap's data validation/normalization, leakage-safe features, baseline
-model evaluation, experiment tracking, inference, monitoring, retraining, and
-prediction-backed strategy simulation remain planned. The current strategy
-engine is an illustrative deterministic baseline; it is not an ML predictor, a
-calibrated pit-stop optimizer, or a full race simulator. There is no dashboard
-or database.
-
-Although scikit-learn, Plotly, and an optional Streamlit extra are declared as
-dependencies, their planned modeling and application capabilities are not yet
-present. `pyproject.toml` also declares an `f1strategy` console script, but its
-target CLI module has not been implemented; use the Python package interfaces
-directly for now.
-
-## Project documents
-
-- [Project plan and roadmap](motorsport_copilot_playbook/PROJECT_PLAN.md)
-- [Current project status](motorsport_copilot_playbook/PROJECT_STATUS.md)
-- [Working rules](motorsport_copilot_playbook/COPILOT_RULES.md)
+Possible follow-up work includes a reproducible manifest for acquired sessions,
+more cross-session quality checks, and an independently approved held-out
+weekend baseline evaluation. These are not implemented. Any future model must
+preserve the current feature/label separation and use evaluation splits that
+keep race weekends independent.

@@ -1,9 +1,7 @@
-# Resolved runtime versions for reproducible installs (the app/dev extras live in
-# pyproject.toml). For development install the package itself instead:
-#     pip install -e ".[app,dev]"
+# Runtime dependencies for F1 LapLab. For development tools, install the project
+# in editable mode with its extra:
+#     pip install -e ".[dev]"
 fastf1>=3.8
 pandas>=2.2
 numpy>=2.0
 pandera>=0.22
-scikit-learn>=1.5
-plotly>=6.0

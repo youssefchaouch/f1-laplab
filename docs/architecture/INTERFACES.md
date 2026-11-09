@@ -1,7 +1,12 @@
-# Module Contracts & Interfaces
+# Historical Module Contracts & Interfaces
 
-> Status: **PROPOSED — awaiting approval**
-> Owner: Chief Architect (Agent 0)
+> This document combines implemented interfaces with deferred proposals from
+> the original platform plan. **Every section heading below states its status**:
+> the `analytics/`, `models/`, `strategy/`, and `visualization/` headings in
+> section 3 are marked *proposed/deferred* or *superseded* and describe code
+> that does not exist. Sections 1, 2, and 4 and the `telemetry/` and
+> `features/` subsections describe current APIs. See
+> [the implemented architecture](ARCHITECTURE.md).
 
 These are the contracts each layer exposes. **No specialist agent may change a
 contract on this page without architect sign-off** — that is the whole point of
@@ -148,7 +153,7 @@ consume `validate_laps_with_report().cleaned_laps`, which excludes duplicate
 identity groups. This replaces the illustrative `FeatureFrame`/`FEATURES_SCHEMA`
 proposal below; no `FEATURES_SCHEMA` is currently implemented.
 
-### `analytics/` (Agent 2)
+### `analytics/` (proposed/deferred; not implemented)
 ```python
 @dataclass(frozen=True)
 class DriverPace:
@@ -170,6 +175,8 @@ def driver_pace(session: LoadedSession) -> list[DriverPace]: ...
 def tire_degradation(session: LoadedSession) -> list[StintSummary]: ...
 def teammate_comparison(session: LoadedSession, team: str) -> "TeammateDelta": ...
 ```
+No `f1strategy.analytics` package exists. The types and functions above are
+illustrative future work from the original platform plan, not a current API.
 
 ### `models/` (proposed/deferred; not implemented)
 ```python
@@ -187,7 +194,7 @@ implementation must use `dataset.features` as `X` and keep `dataset.labels`
 separate; prediction must not consume labels. No model training or evaluation
 is part of Sprint 04.
 
-### `strategy/` (Agent 4)
+### `strategy/` (superseded proposal; this API is not implemented)
 ```python
 @dataclass(frozen=True)
 class StrategyRecommendation:
@@ -200,13 +207,20 @@ class StrategyRecommendation:
 def recommend_pit_window(session: LoadedSession, driver: str) -> StrategyRecommendation: ...
 def undercut_analysis(session: LoadedSession, attacker: str, target: str) -> "UndercutResult": ...
 ```
+Neither function above exists. `f1strategy.strategy` is implemented, but with a
+different, narrower API: it exposes the retained illustrative one-stop ranking
+engine (`StrategyConfig`, `TireDegradation`, `Stint`, `RaceStrategy`) in
+`f1strategy.strategy.engine`, built from explicit uncalibrated assumptions. It
+consumes no `LoadedSession` and is not a race-strategy simulator.
 
-### `visualization/` (Agent 5)
+### `visualization/` (proposed/deferred; not implemented)
 ```python
 def driver_pace_figure(pace: list[DriverPace]) -> plotly.graph_objects.Figure: ...
 def tire_deg_figure(stints: list[StintSummary]) -> plotly.graph_objects.Figure: ...
 # Pure: typed analytics objects in, Figure out. No data loading inside viz.
 ```
+No `f1strategy.visualization` package exists and plotly is **not** a project
+dependency. This section is retained only as a record of the original proposal.
 
 ---
 
@@ -217,7 +231,7 @@ The canonical telemetry boundary frame is validated with `LAPS_SCHEMA`. Sprint
 contract, but are not currently represented by a Pandera `FEATURES_SCHEMA`.
 (ADR-0003 covers `pandera` vs. hand-rolled contracts.)
 
-**`LAPS_SCHEMA`** — produced by `telemetry`, consumed by `features`/`analytics`:
+**`LAPS_SCHEMA`** — produced by `telemetry`, consumed by `features`:
 
 | column | dtype | null? | notes |
 |--------|-------|-------|-------|

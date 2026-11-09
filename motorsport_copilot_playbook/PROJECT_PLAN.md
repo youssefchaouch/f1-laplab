@@ -1,5 +1,9 @@
 # Project Plan — Motorsport Strategy + MLOps
 
+> **Historical plan:** this sprint roadmap predates the F1 LapLab project
+> direction and is retained for development history. It is not a current
+> commitment; see the repository-root README for active scope.
+
 ## Product goal
 
 Build a portfolio-grade Python project that uses historical Formula 1 data to produce defensible lap-time predictions and later support strategy analysis. Demonstrate engineering discipline through data validation, reproducible training, model evaluation, inference, monitoring, and controlled retraining.

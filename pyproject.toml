@@ -1,4 +1,4 @@
-# Packaging + tooling for the AI Motorsport Strategy Assistant.
+# Packaging + tooling for F1 LapLab.
 #
 # WHY THIS FILE EXISTS
 #   It turns the repository into an installable package (`pip install -e .`),
@@ -12,9 +12,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "f1strategy"
+name = "f1-laplab"
 version = "0.1.0"
-description = "AI Motorsport Strategy Assistant — an F1 telemetry analytics and strategy platform."
+description = "Formula 1 lap data engineering and leakage-safe feature engineering."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
@@ -27,22 +27,18 @@ dependencies = [
     "pandas>=2.2",        # tabular currency for lap/telemetry data
     "numpy>=2.0",
     "pandera>=0.22",      # DataFrame schema contracts at layer boundaries (ADR-0003)
-    "scikit-learn>=1.5",  # Phase 4 ML
-    "plotly>=6.0",        # Phase 6 visualization
 ]
 
 [project.optional-dependencies]
-# App layer (Phase 6) — kept optional so the core library installs without a UI stack.
-app = ["streamlit>=1.36"]
-# Quality gates (Phase 7) — installed in CI / dev, not required at runtime.
+# Quality gates — installed in CI / dev, not required at runtime.
 dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.11", "pandas-stubs>=2.2"]
-
-[project.scripts]
-# Single CLI entrypoint / composition root (authored in a later phase).
-f1strategy = "f1strategy.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Ship the PEP 561 marker so the strict typing here is visible to consumers.
+[tool.setuptools.package-data]
+f1strategy = ["py.typed"]
 
 # --- Quality tooling -------------------------------------------------------
 

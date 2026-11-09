@@ -1,5 +1,10 @@
 # Project Status
 
+> **Historical status snapshot:** this document records progress under the
+> former sprint-based project direction. Counts and roadmap references below
+> are not the current F1 LapLab release status; see the repository-root README
+> and `docs/architecture/ARCHITECTURE.md`.
+
 ## Current stage
 **The original Sprint 03 data-validation and normalization milestone is implemented and verified locally.** The one-stop strategy engine was a separate user-directed Sprint 03 scope and remains complete.
 

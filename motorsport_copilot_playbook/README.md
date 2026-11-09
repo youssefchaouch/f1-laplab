@@ -1,5 +1,9 @@
 # Motorsport Strategy + MLOps — Copilot Playbook
 
+> **Historical planning archive:** this playbook describes an earlier project
+> direction and is not the current F1 LapLab roadmap. See the repository-root
+> README for the current project purpose and scope.
+
 This playbook is designed for an existing Python project developed locally in PyCharm. It assumes some code already exists for the domain layer, telemetry, configuration, and tests.
 
 ## How to use it

@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 import pandas as pd
 import pytest
+from fastf1.exceptions import DataNotLoadedError
 
 from f1strategy.config.settings import Settings
 from f1strategy.domain.enums import SessionType
@@ -108,6 +109,37 @@ def test_provider_load_failure_raises_session_load_error(
         FastF1SessionLoader(settings).load(session_ref)
 
     assert error.value.__cause__ is provider_error
+
+
+def test_missing_lap_data_raises_session_load_error(
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+    session_ref: SessionRef,
+) -> None:
+    _disable_fastf1_cache(monkeypatch)
+
+    class SessionWithoutLapData:
+        event = {
+            "EventName": "Monaco Grand Prix",
+            "Location": "Monaco",
+            "Country": "Monaco",
+        }
+        load = Mock()
+
+        @property
+        def laps(self) -> pd.DataFrame:
+            raise DataNotLoadedError("lap timing endpoint data is unavailable")
+
+    session = SessionWithoutLapData()
+    monkeypatch.setattr(
+        "f1strategy.telemetry.loader.fastf1.get_session",
+        Mock(return_value=session),
+    )
+
+    with pytest.raises(SessionLoadError, match="did not load lap data") as error:
+        FastF1SessionLoader(settings).load(session_ref)
+
+    assert isinstance(error.value.__cause__, DataNotLoadedError)
 
 
 def test_empty_lap_results_raise_insufficient_data_error(
