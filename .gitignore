@@ -30,3 +30,13 @@ dist/
 *.joblib
 *.log
 .ipynb_checkpoints/
+
+# --- Local-only working notes (kept on disk, out of the repository) ---
+CLAUDE.md
+SPRINT-*.md
+*-REPORT.md
+*-FIXES-*.md
+FINAL-VERIFICATION.md
+FINALIZATION-REPORT-F1-LAPLAB.md
+VERIFICATION-INSTRUCTIONS.md
+INITIAL-GIT-BASELINE-PLAN.md
