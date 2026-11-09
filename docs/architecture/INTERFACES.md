@@ -2,10 +2,10 @@
 
 > This document combines implemented interfaces with deferred proposals from
 > the original platform plan. **Every section heading below states its status**:
-> the `analytics/`, `models/`, `strategy/`, and `visualization/` headings in
-> section 3 are marked *proposed/deferred* or *superseded* and describe code
-> that does not exist. Sections 1, 2, and 4 and the `telemetry/` and
-> `features/` subsections describe current APIs. See
+> the `analytics/`, `models/`, and `strategy/` headings in section 3 are marked
+> *proposed/deferred* or *superseded* and describe code that does not exist.
+> Sections 1, 2, and 4 and the `telemetry/`, `features/`, and `visualization/`
+> subsections describe current APIs. See
 > [the implemented architecture](ARCHITECTURE.md).
 
 These are the contracts each layer exposes. **No specialist agent may change a
@@ -213,14 +213,26 @@ engine (`StrategyConfig`, `TireDegradation`, `Stint`, `RaceStrategy`) in
 `f1strategy.strategy.engine`, built from explicit uncalibrated assumptions. It
 consumes no `LoadedSession` and is not a race-strategy simulator.
 
-### `visualization/` (proposed/deferred; not implemented)
+### `visualization/` (implemented)
 ```python
-def driver_pace_figure(pace: list[DriverPace]) -> plotly.graph_objects.Figure: ...
-def tire_deg_figure(stints: list[StintSummary]) -> plotly.graph_objects.Figure: ...
-# Pure: typed analytics objects in, Figure out. No data loading inside viz.
+def lap_time_trace_figure(session: LoadedSession, *, highlight: Sequence[str] | None = None,
+                          theme: Theme = LIGHT, title: str | None = None) -> matplotlib.figure.Figure: ...
+def validation_breakdown_figure(report: LapValidationReport, *, theme: Theme = LIGHT,
+                                title: str | None = None) -> matplotlib.figure.Figure: ...
+def feature_target_figure(dataset: LapFeatureDataset, *, theme: Theme = LIGHT,
+                          title: str | None = None) -> matplotlib.figure.Figure: ...
+def history_depth_figure(dataset: LapFeatureDataset, *, theme: Theme = LIGHT,
+                         title: str | None = None) -> matplotlib.figure.Figure: ...
+def pipeline_overview_figure(session: LoadedSession, report: LapValidationReport,
+                             dataset: LapFeatureDataset, *, highlight: Sequence[str] | None = None,
+                             theme: Theme = LIGHT, title: str | None = None) -> matplotlib.figure.Figure: ...
 ```
-No `f1strategy.visualization` package exists and plotly is **not** a project
-dependency. This section is retained only as a record of the original proposal.
+Pure: validated domain objects in, a `Figure` out. The layer loads no data and
+writes no files -- the caller saves. Rendering is **matplotlib and static**, not
+the plotly sketch this section originally proposed: the figures are published in
+a README and in posts, where interactive output does not render. `LIGHT` and
+`DARK` are explicitly chosen token sets, so a figure can be rendered for either
+page background.
 
 ---
 

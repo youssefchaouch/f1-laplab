@@ -27,6 +27,7 @@ dependencies = [
     "pandas>=2.2",        # tabular currency for lap/telemetry data
     "numpy>=2.0",
     "pandera>=0.22",      # DataFrame schema contracts at layer boundaries (ADR-0003)
+    "matplotlib>=3.8",    # static figures in the visualization layer
 ]
 
 [project.optional-dependencies]

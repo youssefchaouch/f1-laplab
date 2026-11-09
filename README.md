@@ -38,12 +38,15 @@ FastF1 session
   -> LoadedSession
       -> LapRecord values (optional representation)
       -> LapFeatureDataset
+          -> matplotlib figures (visualization)
 ```
 
 `domain` owns session identities, metadata, typed lap records, protocols,
 enums, and the schema. `config` owns injected settings, project paths, and
 logging. `telemetry` loads and converts FastF1 data and validates canonical
 frames. `features` builds session-local, prior-only lap datasets.
+`visualization` turns those validated objects into static matplotlib figures;
+it loads no data and writes no files, returning figures for the caller to save.
 
 The existing `strategy` package is a retained, illustrative deterministic
 baseline using explicit assumptions. It is not part of the LapLab data pipeline
@@ -124,6 +127,29 @@ python -m pip install -e ".[dev]"
 
 This installs the project and its declared development tools. If activation is
 restricted, invoke `.\.venv\Scripts\python.exe` directly instead.
+
+## Figures
+
+Rendered from the synthetic fixture below, so they show the pipeline's real
+output rather than a mock-up. Panels: validated lap times with exclusions
+marked, the validation outcome split into exclusions and warnings, prior-history
+depth, and the predictor against its label.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/pipeline-overview-dark.png">
+  <img alt="F1 LapLab pipeline: lap times, validation outcome, history depth, and predictor vs label"
+       src="docs/images/pipeline-overview-light.png">
+</picture>
+
+To regenerate every figure in both themes:
+
+```powershell
+python examplesender_figures.py
+```
+
+The builders are pure functions -- validated domain objects in, a matplotlib
+`Figure` out -- so they are unit tested by inspecting the figure rather than by
+comparing pixels, and they need no display backend.
 
 ## Reproducible offline demonstration
 
