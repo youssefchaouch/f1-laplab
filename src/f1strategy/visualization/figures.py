@@ -101,6 +101,43 @@ def _legend(
     legend.set_zorder(6)
 
 
+def _validation_subtitle(report: LapValidationReport) -> str:
+    """Summarise an outcome, flagging that reason bars do not sum to the total.
+
+    One lap can carry several reasons, so adding the exclusion bars overstates
+    the number of excluded laps. Saying so on the chart is the only way a reader
+    can tell; the grouping alone does not reveal it.
+    """
+    base = (
+        f"{report.retained_rows} of {report.input_rows} laps retained, "
+        f"{report.excluded_rows} excluded"
+    )
+    charted = sum(
+        count for reason, count in report.reason_counts if reason in EXCLUSION_REASONS
+    )
+    if charted == report.excluded_rows:
+        return base
+    return base + " - bars overlap (one lap, several reasons) and do not sum to it"
+
+
+def add_caption(figure: Figure, text: str, theme: Theme = LIGHT) -> None:
+    """Add a provenance footnote beneath a figure.
+
+    Provenance belongs here rather than in the title: a title states what the
+    chart shows, and a long parenthetical about where the data came from pushes
+    that out of view.
+    """
+    figure.text(
+        0.012,
+        0.005,
+        text,
+        color=theme.ink_muted,
+        fontsize=8,
+        ha="left",
+        va="bottom",
+    )
+
+
 def _human(reason: str) -> str:
     return reason.replace("_", " ")
 
@@ -429,8 +466,7 @@ def validation_breakdown_figure(
         ax,
         theme,
         title or "Canonical validation outcome",
-        f"{report.input_rows} rows: {report.retained_rows} retained, "
-        f"{report.excluded_rows} excluded",
+        _validation_subtitle(report),
     )
     figure.tight_layout()
     return figure
@@ -511,7 +547,7 @@ def pipeline_overview_figure(
         breakdown_ax,
         theme,
         "2. Validation outcome",
-        f"{report.retained_rows} of {report.input_rows} rows retained",
+        _validation_subtitle(report),
     )
 
     depth_ax = figure.add_subplot(grid[1, 0])

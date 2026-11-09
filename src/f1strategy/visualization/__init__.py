@@ -8,6 +8,7 @@ posts, where interactive output does not render.
 
 from f1strategy.visualization.figures import (
     EXCLUSION_REASONS,
+    add_caption,
     default_highlight,
     feature_target_figure,
     history_depth_figure,
@@ -23,6 +24,7 @@ __all__ = [
     "LIGHT",
     "THEMES",
     "Theme",
+    "add_caption",
     "default_highlight",
     "feature_target_figure",
     "history_depth_figure",

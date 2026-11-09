@@ -28,6 +28,7 @@ from f1strategy.telemetry.validation import validate_laps_with_report
 from f1strategy.visualization import (
     THEMES,
     Theme,
+    add_caption,
     feature_target_figure,
     history_depth_figure,
     lap_time_trace_figure,
@@ -51,7 +52,8 @@ def _render(
     session: LoadedSession,
     *,
     prefix: str,
-    note: str,
+    label: str,
+    caption: str,
     highlight: list[str] | None,
 ) -> list[Path]:
     report = validate_laps_with_report(session.laps)
@@ -64,24 +66,25 @@ def _render(
             dataset,
             highlight=highlight,
             theme=theme,
-            title=f"F1 LapLab pipeline - {note}",
+            title=f"F1 LapLab pipeline - {label}",
         ),
         "lap-times": lap_time_trace_figure(
-            session, highlight=highlight, theme=theme, title=f"Lap times - {note}"
+            session, highlight=highlight, theme=theme, title=f"Lap times - {label}"
         ),
         "validation": validation_breakdown_figure(
-            report, theme=theme, title=f"Validation outcome - {note}"
+            report, theme=theme, title=f"Validation outcome - {label}"
         ),
         "history-depth": history_depth_figure(
-            dataset, theme=theme, title=f"Prior-history depth - {note}"
+            dataset, theme=theme, title=f"Prior-history depth - {label}"
         ),
         "feature-target": feature_target_figure(
-            dataset, theme=theme, title=f"Predictor vs label - {note}"
+            dataset, theme=theme, title=f"Predictor vs label - {label}"
         ),
     }
 
     written: list[Path] = []
     for name, figure in figures.items():
+        add_caption(figure, caption, theme)
         path = out_dir / f"{prefix}{name}-{theme.name}.png"
         figure.savefig(
             path, facecolor=theme.surface, bbox_inches="tight", pad_inches=0.3
@@ -123,14 +126,16 @@ def main() -> None:
         year, grand_prix, session_code = args.session
         print(f"Loading {year} {grand_prix} {session_code} through FastF1 (uses cache).")
         session = _load_real_session(int(year), grand_prix, session_code)
-        note = (
-            f"{session.metadata.event_name} {year}, "
-            "loaded from a local FastF1 cache (not distributed with this repository)"
+        label = f"{session.metadata.event_name} {year}"
+        caption = (
+            "Rendered from a FastF1 session held in a local cache. The underlying "
+            "timing data is not distributed with this repository."
         )
     else:
         print("Rendering from the synthetic fixture (no network, no cache access).")
         session = build_synthetic_session()
-        note = SYNTHETIC_NOTE
+        label = "synthetic demonstration"
+        caption = SYNTHETIC_NOTE
 
     for theme in THEMES.values():
         for path in _render(
@@ -138,7 +143,8 @@ def main() -> None:
             theme,
             session,
             prefix=args.prefix,
-            note=note,
+            label=label,
+            caption=caption,
             highlight=args.highlight,
         ):
             print(f"  {path}  ({path.stat().st_size / 1024:.0f} KB)")

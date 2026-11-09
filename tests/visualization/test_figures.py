@@ -26,6 +26,7 @@ from f1strategy.visualization import (
     DARK,
     EXCLUSION_REASONS,
     LIGHT,
+    add_caption,
     default_highlight,
     feature_target_figure,
     history_depth_figure,
@@ -229,6 +230,65 @@ def test_validation_breakdown_separates_exclusions_from_warnings(
 def _rgb(hex_colour: str) -> tuple[float, float, float]:
     raw = hex_colour.lstrip("#")
     return tuple(int(raw[i : i + 2], 16) / 255 for i in (0, 2, 4))  # type: ignore[return-value]
+
+
+def test_validation_subtitle_warns_when_reason_bars_do_not_sum(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    """Overlapping reasons make the bars sum higher than the exclusion total.
+
+    Summing them is the natural reading and it is wrong, so the chart has to say
+    so. Without this the reader silently overcounts exclusions. Lap 2 below is
+    both inaccurate and missing a time, which is the common real-world overlap.
+    """
+    overlapping = _loaded_session(
+        _raw_rows(
+            raw_fastf1_laps,
+            [
+                {"lap": 1, "time_s": 90.0},
+                {"lap": 2, "time_s": None, "accurate": False},
+                {"lap": 3, "time_s": 92.0, "deleted": True},
+                {"lap": 4, "time_s": 93.0},
+            ],
+        )
+    )
+    report = validate_laps_with_report(overlapping.laps)
+    charted = sum(
+        count for reason, count in report.reason_counts if reason in EXCLUSION_REASONS
+    )
+    assert charted > report.excluded_rows, "fixture must have an overlapping reason"
+
+    figure = validation_breakdown_figure(report)
+    subtitle = " ".join(text.get_text() for text in figure.axes[0].texts)
+    assert f"{report.excluded_rows} excluded" in subtitle
+    assert "do not sum" in subtitle
+
+
+def test_validation_subtitle_stays_quiet_when_bars_do_sum(
+    raw_fastf1_laps: pd.DataFrame,
+) -> None:
+    single = _loaded_session(
+        _raw_rows(
+            raw_fastf1_laps,
+            [{"lap": 1, "time_s": 90.0}, {"lap": 2, "time_s": 91.0, "deleted": True}],
+        )
+    )
+    report = validate_laps_with_report(single.laps)
+    charted = sum(
+        count for reason, count in report.reason_counts if reason in EXCLUSION_REASONS
+    )
+    assert charted == report.excluded_rows
+    subtitle = " ".join(
+        text.get_text() for text in validation_breakdown_figure(report).axes[0].texts
+    )
+    assert "do not sum" not in subtitle
+
+
+def test_add_caption_puts_provenance_below_the_figure(session: LoadedSession) -> None:
+    figure = lap_time_trace_figure(session)
+    add_caption(figure, "Rendered from a local cache.")
+    captions = [t.get_text() for t in figure.texts]
+    assert "Rendered from a local cache." in captions
 
 
 def test_validation_breakdown_handles_a_clean_session(

@@ -143,10 +143,12 @@ and the predictor against its label.
        src="docs/images/monaco-pipeline-overview-light.png">
 </picture>
 
-Reading them in order: 1183 of 1237 laps survive canonical validation, with the
-exclusions (inaccurate, missing time, deleted) kept separate from the warnings
-that leave a lap eligible (pit in/out, non-clear track status). 1106 target laps
-have all three prior slots available. The predictor tracks the label closely but
+Reading them in order: 1183 of 1237 laps survive canonical validation, so 54 are
+excluded. The reason bars sum higher than 54 because they overlap -- 11 laps are
+both inaccurate and missing a time -- and the chart says so rather than leaving
+the reader to add them up. Exclusions are kept separate from warnings that leave
+a lap eligible (pit in/out, non-clear track status). 1106 target laps have all
+three prior slots available. The predictor tracks the label closely but
 not exactly, and that gap is what any later model would have to earn.
 
 The lap-time axis is scaled to racing pace, and laps outside that range are
