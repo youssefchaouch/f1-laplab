@@ -1,9 +1,9 @@
-"""f1strategy — AI Motorsport Strategy Assistant.
+"""f1strategy — F1 LapLab's Python package.
 
-A layered F1 telemetry analytics and strategy platform. See docs/architecture/
-for the module boundaries and dependency rules. Importing this package has no
-side effects (no network, no filesystem) — configuration is injected, not run on
-import.
+Formula 1 lap data engineering and feature engineering. See
+docs/architecture/ARCHITECTURE.md for the implemented module boundaries.
+Importing this package has no side effects; configuration is injected, not run
+on import.
 """
 
 __version__ = "0.1.0"

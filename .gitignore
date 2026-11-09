@@ -24,3 +24,9 @@ dist/
 !.env.*.example
 .envrc
 .idea/
+
+# --- Local outputs ---
+/models/
+*.joblib
+*.log
+.ipynb_checkpoints/

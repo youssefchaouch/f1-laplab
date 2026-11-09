@@ -22,6 +22,7 @@ import logging
 
 import fastf1
 import pandas as pd
+from fastf1.exceptions import DataNotLoadedError
 
 from f1strategy.config.settings import Settings
 from f1strategy.domain.errors import InsufficientDataError, SessionLoadError
@@ -57,7 +58,12 @@ class FastF1SessionLoader:
         except Exception as exc:  # FastF1 raises a variety of error types
             raise SessionLoadError(f"Failed to load {ref}: {exc}") from exc
 
-        laps = validate_laps(fastf1_laps_to_frame(session.laps))
+        try:
+            raw_laps = session.laps
+        except DataNotLoadedError as exc:
+            raise SessionLoadError(f"FastF1 did not load lap data for {ref}: {exc}") from exc
+
+        laps = validate_laps(fastf1_laps_to_frame(raw_laps))
         if laps.empty:
             raise InsufficientDataError(f"Session {ref} contains no laps")
         if not laps["IsValid"].any():

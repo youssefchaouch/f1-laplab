@@ -78,6 +78,9 @@ class LapRecord:
     lap_time_s: float | None
     is_accurate: bool
     deleted: bool
+    is_pit_in_lap: bool | None = None
+    is_pit_out_lap: bool | None = None
+    track_status: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.session_ref, SessionRef):
@@ -114,6 +117,16 @@ class LapRecord:
                 raise ValueError("lap_time_s must be positive or None")
         if not isinstance(self.is_accurate, bool) or not isinstance(self.deleted, bool):
             raise ValueError("is_accurate and deleted must be bool values")
+        for name, value in (
+            ("is_pit_in_lap", self.is_pit_in_lap),
+            ("is_pit_out_lap", self.is_pit_out_lap),
+        ):
+            if value is not None and not isinstance(value, bool):
+                raise ValueError(f"{name} must be bool or None")
+        if self.track_status is not None and (
+            not isinstance(self.track_status, str) or not self.track_status
+        ):
+            raise ValueError("track_status must be a non-empty string or None")
 
     @property
     def is_valid(self) -> bool:

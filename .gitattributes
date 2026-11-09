@@ -1,0 +1,9 @@
+# Normalize line endings: store LF in the repository, check out native.
+# Without this, every diff on a Windows clone warns about LF -> CRLF.
+* text=auto
+
+# Binary artifacts that must never be line-ending converted.
+*.ff1pkl binary
+*.sqlite binary
+*.joblib binary
+*.ipynb text

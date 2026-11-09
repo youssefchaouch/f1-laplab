@@ -37,6 +37,9 @@ LAP_TIME_S = "LapTime_s"
 IS_ACCURATE = "IsAccurate"
 DELETED = "Deleted"
 IS_VALID = "IsValid"
+IS_PIT_IN_LAP = "IsPitInLap"
+IS_PIT_OUT_LAP = "IsPitOutLap"
+TRACK_STATUS = "TrackStatus"
 
 LAPS_COLUMNS: tuple[str, ...] = (
     DRIVER,
@@ -49,6 +52,9 @@ LAPS_COLUMNS: tuple[str, ...] = (
     IS_ACCURATE,
     DELETED,
     IS_VALID,
+    IS_PIT_IN_LAP,
+    IS_PIT_OUT_LAP,
+    TRACK_STATUS,
 )
 
 _COMPOUND_VALUES = [c.value for c in TireCompound]
@@ -69,6 +75,11 @@ LAPS_SCHEMA = pa.DataFrameSchema(
         IS_ACCURATE: pa.Column(bool, nullable=False),
         DELETED: pa.Column(bool, nullable=False),
         IS_VALID: pa.Column(bool, nullable=False),
+        # FastF1 exposes pit markers as nullable times; None means unavailable.
+        IS_PIT_IN_LAP: pa.Column("boolean", nullable=True),
+        IS_PIT_OUT_LAP: pa.Column("boolean", nullable=True),
+        # Preserve FastF1's per-lap track-status code without interpreting it.
+        TRACK_STATUS: pa.Column("string", nullable=True),
     },
     strict=True,
     coerce=True,

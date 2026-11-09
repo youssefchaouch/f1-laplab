@@ -30,6 +30,9 @@ def raw_fastf1_laps() -> pd.DataFrame:
             "LapTime": pd.to_timedelta(["0:01:14.5", "0:01:13.9", pd.NaT]),
             "IsAccurate": [True, True, False],
             "Deleted": [False, False, False],
+            "PitInTime": pd.to_timedelta([pd.NaT, "0:01:13.9", pd.NaT]),
+            "PitOutTime": pd.to_timedelta(["0:00:00", pd.NaT, pd.NaT]),
+            "TrackStatus": ["1", "2", pd.NA],
         }
     )
 

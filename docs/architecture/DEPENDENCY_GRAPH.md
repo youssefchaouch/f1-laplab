@@ -1,10 +1,13 @@
-# Dependency Graph
+# Historical Dependency Graph Proposal
 
-> Status: **PROPOSED — awaiting approval**
-> Owner: Chief Architect (Agent 0)
+> This document describes the original motorsport-platform proposal, not the
+> current F1 LapLab architecture. See [the implemented architecture](ARCHITECTURE.md).
 
 The dependency rule: **an arrow `A → B` means "A may import B".** There are no
-cycles. Reverse imports are forbidden and enforced by a CI test (Agent 6).
+cycles. Reverse imports are forbidden by convention. The only part of this rule
+that is mechanically enforced is the FastF1 boundary, checked by
+`tests/architecture/test_import_boundaries.py`. This repository has no CI
+pipeline; the quality gates are run locally (see the root README).
 
 ## Module graph (Mermaid)
 
@@ -52,7 +55,8 @@ graph TD
    sits below them, so they can never participate in a cycle.
 
 2. **`fastf1` appears only inside `telemetry/`.** This is the anti-corruption
-   boundary. Enforcement test (Agent 6):
+   boundary. Enforced by `tests/architecture/test_import_boundaries.py`; the
+   sketch below is illustrative, not the implemented code:
 
    ```python
    # tests/architecture/test_import_boundaries.py

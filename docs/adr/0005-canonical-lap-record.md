@@ -25,6 +25,11 @@ remain optional and are represented as `None` when absent. A missing lap time is
 also represented as `None`. The schema's `UNKNOWN` sentinels remain in use for
 unavailable team and compound values.
 
+The schema and record also preserve nullable pit-in/out flags and the optional
+FastF1 track-status code. These observations support validation warnings; they
+do not alter the canonical lap-validity rule. Missing optional source values
+remain `None`, rather than being inferred.
+
 `is_valid` is a computed property using the shared rule: accurate, not deleted,
 and lap time present. `IsValid` remains in the batch schema for filtering; the
 record converter checks it agrees with the property. The accuracy and deletion
@@ -42,6 +47,8 @@ continues to be isolated in the telemetry package.
   a second DataFrame representation.
 - (+) Missing optional integer and time values stay distinguishable from real
   zeroes or times.
+- (+) Pit events and track-status observations remain available for analysis
+  without silently changing lap validity.
 - (−) The same domain information exists in both batch columns and a scalar
   model, so conversion and invariant tests must keep them aligned.
 - (−) Record conversion validates the batch frame before materializing values;
