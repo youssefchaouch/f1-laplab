@@ -108,8 +108,10 @@ is local, ignored by Git, and is not required by the demonstration. Real-session
 loading may require external FastF1 services when data is not cached; the sample
 acquisition script is optional, not part of the offline demo.
 
-The reproducible demo uses a **small synthetic fixture**, clearly labelled in
-its output. It does not represent actual Formula 1 telemetry or performance.
+The committed figures are rendered from a 2024 Monaco race session held in a
+local FastF1 cache and are labelled with that provenance; the underlying data is
+still not distributed here. The reproducible demo uses a **small synthetic
+fixture**, clearly labelled in its output. It does not represent actual Formula 1 telemetry or performance.
 No trained prediction model, model evaluation, race replay, or race strategy
 simulation is included. Historical provider availability, cache contents, and
 lap-quality caveats remain relevant when using real sessions.
@@ -130,21 +132,42 @@ restricted, invoke `.\.venv\Scripts\python.exe` directly instead.
 
 ## Figures
 
-Rendered from the synthetic fixture below, so they show the pipeline's real
-output rather than a mock-up. Panels: validated lap times with exclusions
-marked, the validation outcome split into exclusions and warnings, prior-history
-depth, and the predictor against its label.
+Real pipeline output, not a mock-up: the 2024 Monaco Grand Prix race, 1237 lap
+records from 20 drivers. Panels are validated lap times with exclusions marked,
+the validation outcome split into exclusions and warnings, prior-history depth,
+and the predictor against its label.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/pipeline-overview-dark.png">
-  <img alt="F1 LapLab pipeline: lap times, validation outcome, history depth, and predictor vs label"
-       src="docs/images/pipeline-overview-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/monaco-pipeline-overview-dark.png">
+  <img alt="F1 LapLab pipeline on the 2024 Monaco Grand Prix: lap times, validation outcome, history depth, and predictor vs label"
+       src="docs/images/monaco-pipeline-overview-light.png">
 </picture>
 
-To regenerate every figure in both themes:
+Reading them in order: 1183 of 1237 laps survive canonical validation, with the
+exclusions (inaccurate, missing time, deleted) kept separate from the warnings
+that leave a lap eligible (pit in/out, non-clear track status). 1106 target laps
+have all three prior slots available. The predictor tracks the label closely but
+not exactly, and that gap is what any later model would have to earn.
+
+The lap-time axis is scaled to racing pace, and laps outside that range are
+counted on the chart rather than dropped: the race was red-flagged, so the
+longest lap record exceeds 2500 seconds.
+
+These are rendered from a FastF1 session held in a local cache. **No race data
+is distributed in this repository** -- the images are derived charts. To
+reproduce them you need that session in your own cache:
 
 ```powershell
-python examplesender_figures.py
+python examples\render_figures.py --session 2024 "Monaco Grand Prix" R `
+    --highlight LEC PIA SAI --prefix monaco-
+```
+
+That path reads the FastF1 cache and fetches over the network if the session is
+not cached. The default command needs neither, rendering the same five figures
+from the synthetic fixture:
+
+```powershell
+python examples\render_figures.py
 ```
 
 The builders are pure functions -- validated domain objects in, a matplotlib

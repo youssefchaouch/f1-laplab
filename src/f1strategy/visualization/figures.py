@@ -120,12 +120,55 @@ def default_highlight(session: LoadedSession) -> tuple[str, ...]:
     return tuple(driver for driver, _ in ranked[:MAX_HIGHLIGHT])
 
 
+def _clip_to_racing_pace(ax: Axes, session: LoadedSession, theme: Theme) -> None:
+    """Scale the y-axis to racing pace, disclosing anything left off-scale.
+
+    A red-flag or stoppage lap can be tens of times a normal lap; letting the
+    axis cover it compresses every real lap into a flat line. The band is taken
+    from canonically valid laps, and any point outside it is counted in a note
+    on the axes -- the chart never drops a lap silently.
+    """
+    laps = session.laps
+    valid = laps.loc[laps[S.IS_VALID], S.LAP_TIME_S].astype("float64")
+    timed = laps[S.LAP_TIME_S].astype("float64").dropna()
+    if valid.empty or timed.empty:
+        return
+
+    low, high = float(valid.min()), float(valid.max())
+    if high <= low:
+        return
+    margin = (high - low) * 0.08
+    low, high = low - margin, high + margin
+    hidden = int(((timed < low) | (timed > high)).sum())
+    if hidden == 0:
+        return
+
+    ax.set_ylim(low, high)
+    note = _plural(hidden, "lap") + f" outside this range (max {timed.max():.0f} s)"
+    ax.annotate(
+        note,
+        xy=(1.0, 1.0),
+        xycoords="axes fraction",
+        xytext=(0, 6),
+        textcoords="offset points",
+        ha="right",
+        color=theme.ink_muted,
+        fontsize=8,
+    )
+
+
 def _draw_lap_time_trace(
     ax: Axes, session: LoadedSession, highlight: Sequence[str], theme: Theme
 ) -> None:
     laps = session.laps
     emphasised = list(dict.fromkeys(highlight))[:MAX_HIGHLIGHT]
     has_others = False
+
+    # Minimum vertical separation between two end-labels, in data units.
+    valid_times = laps.loc[laps[S.IS_VALID], S.LAP_TIME_S].astype("float64")
+    spread = float(valid_times.max() - valid_times.min()) if not valid_times.empty else 0.0
+    label_gap = spread * 0.04
+    label_positions: list[float] = []
 
     for driver in sorted({str(d) for d in laps[S.DRIVER]}):
         rows = laps.loc[laps[S.DRIVER] == driver].sort_values(S.LAP_NUMBER)
@@ -137,17 +180,22 @@ def _draw_lap_time_trace(
             visible = rows.loc[rows[S.LAP_TIME_S].notna()]
             if not visible.empty:
                 last = visible.iloc[-1]
-                # Direct label: the documented relief for a sub-3:1 series colour.
-                ax.annotate(
-                    driver,
-                    xy=(int(last[S.LAP_NUMBER]), float(last[S.LAP_TIME_S])),
-                    xytext=(6, 0),
-                    textcoords="offset points",
-                    color=theme.ink_secondary,
-                    fontsize=8,
-                    va="center",
-                    zorder=4,
-                )
+                end_y = float(last[S.LAP_TIME_S])
+                if all(abs(end_y - placed) > label_gap for placed in label_positions):
+                    label_positions.append(end_y)
+                    # Direct label: relief for a sub-3:1 series colour. Skipped
+                    # when series converge, where the legend carries identity
+                    # instead - a nudged label detaches from its line.
+                    ax.annotate(
+                        driver,
+                        xy=(int(last[S.LAP_NUMBER]), end_y),
+                        xytext=(6, 0),
+                        textcoords="offset points",
+                        color=theme.ink_secondary,
+                        fontsize=8,
+                        va="center",
+                        zorder=4,
+                    )
         else:
             has_others = True
             ax.plot(x, y, color=theme.deemphasis, linewidth=1.0, zorder=1)
@@ -191,6 +239,7 @@ def _draw_lap_time_trace(
 
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.margins(x=0.07)
+    _clip_to_racing_pace(ax, session, theme)
     _style_axes(ax, theme, xlabel="Lap number", ylabel="Lap time (s)")
 
 
@@ -253,7 +302,7 @@ def _draw_validation_breakdown(
         Line2D([], [], color=theme.series[0], linewidth=6, label="excludes the lap"),
         Line2D([], [], color=theme.deemphasis, linewidth=6, label="warning, lap kept"),
     ]
-    _legend(ax, theme, handles)
+    _legend(ax, theme, handles, below=True)
     _style_axes(ax, theme, xlabel="Laps", ylabel="")
     ax.grid(False, axis="y")
     ax.grid(True, axis="x", color=theme.grid, linewidth=1.0, linestyle="-", zorder=0)
@@ -270,16 +319,20 @@ def _draw_feature_target(ax: Axes, dataset: LapFeatureDataset, theme: Theme) -> 
         high = float(max(previous[paired].max(), target[paired].max()))
         ax.plot([low, high], [low, high], color=theme.baseline, linewidth=1.0, zorder=1)
 
+    dense = int(paired.sum()) > 200
+    marker_size = 18.0 if dense else 64.0
+    ring = 0.0 if dense else 1.5
     for level in sorted(set(depth[paired].tolist())):
         mask = paired & depth.eq(level)
         suffix = "" if level == 1 else "s"
         ax.scatter(
             previous[mask],
             target[mask],
-            s=64,
+            s=marker_size,
             color=theme.ordinal[min(level, len(theme.ordinal) - 1)],
-            edgecolors=theme.surface,
-            linewidths=1.5,
+            edgecolors=theme.surface if ring else "none",
+            linewidths=ring,
+            alpha=0.75 if dense else 1.0,
             zorder=3,
             label=f"{level} prior lap{suffix}",
         )
