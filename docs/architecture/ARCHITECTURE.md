@@ -1,8 +1,11 @@
 # F1 LapLab Architecture
 
-F1 LapLab is a data-ingestion, validation, and feature-engineering library. Its
-current pipeline ends at a structured `LapFeatureDataset`; it has no trained
-predictor, inference service, race replay, or strategy simulator.
+F1 LapLab is a data-ingestion, validation, and feature-engineering library with
+a baseline modelling layer. The pipeline produces a structured
+`LapFeatureDataset`, on which `modeling` fits and evaluates baseline lap-time
+predictors. It has no inference service, race replay, or calibrated strategy
+simulator. The separate `strategy` package provides an assumption-driven
+one-stop baseline.
 
 ## Data flow
 
@@ -15,6 +18,7 @@ SessionRef
   -> LoadedSession
       -> lap_records_from_session -> tuple[LapRecord, ...]
       -> build_lap_features -> LapFeatureDataset
+          -> modeling.evaluate_leave_one_weekend_out -> EvaluationReport
           -> visualization.*_figure -> matplotlib Figure
 ```
 
@@ -29,8 +33,9 @@ without calling FastF1 or accessing the cache.
 | `config` | Injected settings, absolute project data/cache paths, and explicit logging setup. |
 | `telemetry` | FastF1 session loading, provider-to-canonical conversion, and lap validation. This is the only package that imports FastF1. |
 | `features` | Deterministic prior-only feature construction for one `LoadedSession` at a time. |
+| `modeling` | Naive and ridge baseline predictors of the upcoming lap time, and leave-one-weekend-out evaluation. Consumes `LapFeatureDataset`; never imports FastF1. |
 | `visualization` | Static matplotlib figures built from validated domain objects. Loads no data and writes no files; returns figures for the caller to save. |
-| `strategy` | Retained illustrative assumption-based one-stop ranking code; outside the LapLab pipeline and not a race simulator. |
+| `strategy` | Deterministic one-stop strategy baseline: enumerates and ranks feasible one-stop plans from explicit lap-pace, linear-degradation, pit-loss, stint, and pit-window assumptions. Depends only on `domain`; does not consume pipeline output and is not a calibrated race simulator. |
 
 Tests mirror the package boundaries. Conversion, validation, feature
 construction, and the synthetic demonstration can be exercised offline.

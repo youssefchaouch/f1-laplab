@@ -85,19 +85,26 @@ def _legend(
     collide with the data or with direct labels - a real risk on a trace whose
     series end in the top-right corner.
     """
-    placement: dict[str, object] = (
-        {"loc": "upper left", "bbox_to_anchor": (0.0, -0.16), "ncols": len(handles)}
-        if below
-        else {"loc": "upper right"}
-    )
-    legend = ax.legend(
-        handles=list(handles),
-        frameon=False,
-        fontsize=8,
-        labelcolor=theme.ink_secondary,
-        handlelength=1.6,
-        **placement,
-    )
+    if below:
+        legend = ax.legend(
+            handles=list(handles),
+            frameon=False,
+            fontsize=8,
+            labelcolor=theme.ink_secondary,
+            handlelength=1.6,
+            loc="upper left",
+            bbox_to_anchor=(0.0, -0.16),
+            ncols=len(handles),
+        )
+    else:
+        legend = ax.legend(
+            handles=list(handles),
+            frameon=False,
+            fontsize=8,
+            labelcolor=theme.ink_secondary,
+            handlelength=1.6,
+            loc="upper right",
+        )
     legend.set_zorder(6)
 
 

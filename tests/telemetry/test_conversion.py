@@ -100,8 +100,8 @@ def test_incomplete_optional_values_are_preserved_as_missing(
     raw["Stint"] = pd.Series([1, pd.NA, 2], dtype="Int64")
     raw["TyreLife"] = pd.Series([pd.NA, 2, 3], dtype="Int64")
     frame = validate_laps(fastf1_laps_to_frame(raw))
-    assert pd.isna(frame.loc[1, S.STINT])
-    assert pd.isna(frame.loc[0, S.TYRE_LIFE])
+    assert bool(frame[S.STINT].isna().loc[1])
+    assert bool(frame[S.TYRE_LIFE].isna().loc[0])
 
 
 def test_missing_required_lap_flags_are_rejected(
