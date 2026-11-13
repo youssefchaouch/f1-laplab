@@ -58,12 +58,12 @@ def _raw_rows(
         row["LapNumber"] = lap_number
         seconds = lap.get("time_s")
         row["LapTime"] = (
-            pd.NaT if seconds is None else pd.Timedelta(seconds=float(seconds))  # type: ignore[arg-type]
+            pd.NaT if seconds is None else pd.Timedelta(float(seconds), unit="s")  # type: ignore[arg-type]
         )
         row["IsAccurate"] = bool(lap.get("accurate", True))
         row["Deleted"] = bool(lap.get("deleted", False))
-        row["PitInTime"] = pd.Timedelta(seconds=1) if lap.get("pit_in") else pd.NaT
-        row["PitOutTime"] = pd.Timedelta(seconds=1) if lap.get("pit_out") else pd.NaT
+        row["PitInTime"] = pd.Timedelta(1, unit="s") if lap.get("pit_in") else pd.NaT
+        row["PitOutTime"] = pd.Timedelta(1, unit="s") if lap.get("pit_out") else pd.NaT
         row["TrackStatus"] = str(lap.get("track_status", "1"))
         rows.append(row)
     return pd.DataFrame(rows).reset_index(drop=True)

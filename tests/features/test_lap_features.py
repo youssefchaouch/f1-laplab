@@ -42,12 +42,12 @@ def _raw_rows(
         seconds = lap.get("time_s")
         if seconds is not None and not isinstance(seconds, (int, float)):
             raise TypeError("lap time fixture values must be numeric or None")
-        row["LapTime"] = pd.NaT if seconds is None else pd.Timedelta(seconds=seconds)
+        row["LapTime"] = pd.NaT if seconds is None else pd.Timedelta(seconds, unit="s")
         row["IsAccurate"] = bool(lap.get("accurate", True))
         row["Deleted"] = bool(lap.get("deleted", False))
-        row["PitInTime"] = pd.NaT if not lap.get("pit_in", False) else pd.Timedelta(seconds=1)
+        row["PitInTime"] = pd.NaT if not lap.get("pit_in", False) else pd.Timedelta(1, unit="s")
         row["PitOutTime"] = (
-            pd.NaT if not lap.get("pit_out", False) else pd.Timedelta(seconds=1)
+            pd.NaT if not lap.get("pit_out", False) else pd.Timedelta(1, unit="s")
         )
         row["TrackStatus"] = str(lap.get("track_status", "1"))
         rows.append(row)
@@ -152,7 +152,7 @@ def test_target_time_perturbation_changes_label_but_not_its_features(
     raw_fastf1_laps: pd.DataFrame,
 ) -> None:
     changed = raw_fastf1_laps.copy()
-    changed.loc[1, "LapTime"] = pd.Timedelta(seconds=99.0)
+    changed.loc[1, "LapTime"] = pd.Timedelta(99.0, unit="s")
     original_result = build_lap_features(_loaded_session(raw_fastf1_laps))
     changed_result = build_lap_features(_loaded_session(changed))
 
@@ -182,8 +182,8 @@ def test_future_time_and_event_perturbations_do_not_change_earlier_features(
     )
     changed["PitInTime"] = changed["PitInTime"].astype(object)
     changed["PitOutTime"] = changed["PitOutTime"].astype(object)
-    changed.loc[changed["LapNumber"] > 3, "PitInTime"] = pd.Timedelta(seconds=1)
-    changed.loc[changed["LapNumber"] > 3, "PitOutTime"] = pd.Timedelta(seconds=1)
+    changed.loc[changed["LapNumber"] > 3, "PitInTime"] = pd.Timedelta(1, unit="s")
+    changed.loc[changed["LapNumber"] > 3, "PitOutTime"] = pd.Timedelta(1, unit="s")
     changed.loc[changed["LapNumber"] > 3, "TrackStatus"] = "4"
     original_result = build_lap_features(_loaded_session(raw))
     changed_result = build_lap_features(_loaded_session(changed))

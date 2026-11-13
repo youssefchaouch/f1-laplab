@@ -130,13 +130,13 @@ def test_invalid_lap_number_is_not_replaced_with_a_default(
         validate_laps(fastf1_laps_to_frame(raw))
 
 
-@pytest.mark.parametrize("lap_time", ["0:00:00", "-0:00:01"])
+@pytest.mark.parametrize("lap_time_s", [0.0, -1.0])
 def test_non_positive_lap_times_are_rejected(
     raw_fastf1_laps: pd.DataFrame,
-    lap_time: str,
+    lap_time_s: float,
 ) -> None:
     raw = raw_fastf1_laps.copy()
-    raw.loc[0, "LapTime"] = pd.Timedelta(lap_time)
+    raw.loc[0, "LapTime"] = pd.Timedelta(lap_time_s, unit="s")
 
     with pytest.raises(SchemaValidationError):
         validate_laps(fastf1_laps_to_frame(raw))
