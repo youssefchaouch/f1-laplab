@@ -1,9 +1,10 @@
 """Explainable one-stop strategy calculations from explicit assumptions.
 
-The baseline model assumes a constant reference lap time plus linear tire
-degradation. Tire age is zero on the first lap of each stint, so a stint of
-``n`` laps adds degradation for ages ``0`` through ``n - 1``. These are
-illustrative inputs, not a calibrated model of real race pace.
+The baseline model assumes a constant reference lap time, an optional fixed
+per-compound pace offset, and linear tire degradation. Tire age is zero on the
+first lap of each stint, so a stint of ``n`` laps adds degradation for ages
+``0`` through ``n - 1``. These are illustrative inputs, not a calibrated model
+of real race pace.
 """
 
 from __future__ import annotations
@@ -29,10 +30,16 @@ def _require_finite_number(value: float, *, name: str, minimum: float) -> None:
 
 @dataclass(frozen=True, slots=True)
 class TireDegradation:
-    """Configured linear lap-time increase per lap of tire age."""
+    """Configured compound pace and linear lap-time increase per lap of tire age.
+
+    ``pace_offset_s`` is added to every lap on this compound, relative to the
+    baseline lap time. A negative value is a faster compound. With the default
+    of ``0.0`` every compound shares the baseline pace.
+    """
 
     compound: TireCompound
     seconds_per_lap: float
+    pace_offset_s: float = 0.0
 
     def __post_init__(self) -> None:
         if not isinstance(self.compound, TireCompound) or self.compound is TireCompound.UNKNOWN:
@@ -42,6 +49,12 @@ class TireDegradation:
             name="seconds_per_lap",
             minimum=0.0,
         )
+        if (
+            isinstance(self.pace_offset_s, bool)
+            or not isinstance(self.pace_offset_s, (int, float))
+            or not isfinite(self.pace_offset_s)
+        ):
+            raise ValueError("pace_offset_s must be a finite number")
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +122,8 @@ class StrategyConfig:
         if len(compounds) != len(set(compounds)):
             raise ValueError("tire_degradation cannot contain duplicate compounds")
         object.__setattr__(self, "tire_degradation", models)
+        if any(self.baseline_lap_time_s + model.pace_offset_s <= 0 for model in models):
+            raise ValueError("baseline_lap_time_s plus each pace_offset_s must be positive")
 
         if not any(
             self._stint_length_is_feasible(pit_lap)
@@ -273,14 +288,14 @@ def generate_one_stop_strategies(config: StrategyConfig) -> tuple[RaceStrategy, 
                 first_model.compound,
                 1,
                 first_length,
-                config.baseline_lap_time_s,
+                config.baseline_lap_time_s + first_model.pace_offset_s,
                 first_model.seconds_per_lap,
             )
             second = estimate_stint(
                 second_model.compound,
                 pit_lap + 1,
                 second_length,
-                config.baseline_lap_time_s,
+                config.baseline_lap_time_s + second_model.pace_offset_s,
                 second_model.seconds_per_lap,
             )
             candidates.append(
@@ -316,7 +331,8 @@ def recommend_strategy(config: StrategyConfig) -> StrategyRecommendation:
     )
     explanation = (
         f"Ranks first at {best.estimated_total_time_s:.3f}s among {len(ranked)} feasible "
-        "one-stop strategies under the configured linear tire-degradation assumptions."
+        "one-stop strategies under the configured compound-pace and linear "
+        "tire-degradation assumptions."
     )
     return StrategyRecommendation(
         recommended=best,

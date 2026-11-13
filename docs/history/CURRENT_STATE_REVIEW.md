@@ -1,7 +1,7 @@
 # Historical Repository Review — Weaknesses, Improvements, Decisions
 
 > This is an original planning review and contains superseded observations.
-> The current project is F1 LapLab; see [the implemented architecture](ARCHITECTURE.md)
+> The current project is F1 LapLab; see [the implemented architecture](../architecture/ARCHITECTURE.md)
 > and the repository-root README for current scope.
 
 Honest review of the code as it exists today, the way a senior reviewer would

@@ -14,7 +14,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "f1-laplab"
 version = "0.1.0"
-description = "Formula 1 lap data engineering and leakage-safe feature engineering."
+description = "Formula 1 lap data engineering, leakage-safe features, baseline lap-time models, and a one-stop strategy baseline."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }

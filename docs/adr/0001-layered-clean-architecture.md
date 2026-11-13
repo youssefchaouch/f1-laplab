@@ -41,5 +41,5 @@ may only import inward (see DEPENDENCY_GRAPH.md).
 - (+) The package is installable and importable identically everywhere.
 - (+) New contributors orient via eight named layers.
 - (−) One-time migration cost: move existing files under `src/f1strategy/` and
-  add packaging. Tracked in CURRENT_STATE_REVIEW §E.
+  add packaging. Tracked in the historical review (docs/history/CURRENT_STATE_REVIEW.md §E).
 - (−) Contributors must `pip install -e .` once. Documented in README.

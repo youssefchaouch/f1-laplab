@@ -212,3 +212,47 @@ def test_identical_inputs_produce_identical_rankings() -> None:
     config = _config()
 
     assert recommend_strategy(config) == recommend_strategy(config)
+
+
+def test_pace_offset_defaults_to_shared_baseline() -> None:
+    assert TireDegradation(TireCompound.SOFT, 0.08).pace_offset_s == 0.0
+
+
+def test_pace_offset_is_added_to_every_lap_of_the_stint() -> None:
+    config = _config(
+        tire_degradation=(TireDegradation(TireCompound.SOFT, 0.0, pace_offset_s=-0.5),),
+    )
+    strategy = generate_one_stop_strategies(config)[0]
+
+    assert all(
+        math.isclose(stint.estimated_time_s, stint.lap_count * 89.5)
+        for stint in strategy.stints
+    )
+
+
+def test_faster_compound_can_outweigh_higher_degradation() -> None:
+    config = _config(
+        race_laps=20,
+        min_stint_laps=5,
+        max_stint_laps=15,
+        pit_window_start_lap=5,
+        pit_window_end_lap=15,
+        tire_degradation=(
+            TireDegradation(TireCompound.SOFT, 0.10, pace_offset_s=-0.8),
+            TireDegradation(TireCompound.HARD, 0.02, pace_offset_s=0.0),
+        ),
+    )
+    best = recommend_strategy(config).recommended
+
+    assert TireCompound.SOFT in {stint.compound for stint in best.stints}
+
+
+@pytest.mark.parametrize("offset", [math.inf, math.nan, True])
+def test_invalid_pace_offset_is_rejected(offset: float) -> None:
+    with pytest.raises(ValueError, match="pace_offset_s"):
+        TireDegradation(TireCompound.SOFT, 0.05, pace_offset_s=offset)
+
+
+def test_pace_offset_cannot_make_lap_time_non_positive() -> None:
+    with pytest.raises(ValueError, match="pace_offset_s must be positive"):
+        _config(tire_degradation=(TireDegradation(TireCompound.SOFT, 0.05, pace_offset_s=-90.0),))
